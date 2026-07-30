@@ -1,7 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 
 import { cookies } from "next/headers";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse, type NextRequest } from "next/server";
 import { createRemoteJWKSet, jwtVerify } from "jose";
 
 import {
@@ -311,18 +311,6 @@ export async function getSessionUser(): Promise<SessionUser | null> {
   const token = cookieStore.get(sessionCookie)?.value;
   if (!token) return null;
   return verifySessionToken(token, authSecret());
-}
-
-export async function sessionResponse(): Promise<NextResponse> {
-  const user = await getSessionUser().catch(() => null);
-  return NextResponse.json(
-    { user },
-    {
-      headers: {
-        "Cache-Control": "private, no-store",
-      },
-    },
-  );
 }
 
 export async function logoutResponse(

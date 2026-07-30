@@ -1,6 +1,6 @@
 import { timingSafeEqual } from "node:crypto";
 
-import { jwtVerify, SignJWT } from "jose";
+import { errors, jwtVerify, SignJWT } from "jose";
 
 const sessionIssuer = "homebase-migration-progress";
 const sessionAudience = "homebase-migration-progress-dashboard";
@@ -108,24 +108,31 @@ export async function createSessionToken(
 export async function verifySessionToken(
   token: string,
   secret: string,
-): Promise<SessionUser> {
-  const { payload } = await jwtVerify(token, secretKey(secret), {
-    algorithms: ["HS256"],
-    issuer: sessionIssuer,
-    audience: sessionAudience,
-  });
+): Promise<SessionUser | null> {
+  const key = secretKey(secret);
 
-  if (
-    typeof payload.sub !== "string" ||
-    typeof payload.email !== "string" ||
-    typeof payload.name !== "string"
-  ) {
-    throw new Error("Session token is missing user claims");
+  try {
+    const { payload } = await jwtVerify(token, key, {
+      algorithms: ["HS256"],
+      issuer: sessionIssuer,
+      audience: sessionAudience,
+    });
+
+    if (
+      typeof payload.sub !== "string" ||
+      typeof payload.email !== "string" ||
+      typeof payload.name !== "string"
+    ) {
+      return null;
+    }
+
+    return {
+      sub: payload.sub,
+      email: payload.email,
+      name: payload.name,
+    };
+  } catch (error) {
+    if (error instanceof errors.JOSEError) return null;
+    throw error;
   }
-
-  return {
-    sub: payload.sub,
-    email: payload.email,
-    name: payload.name,
-  };
 }

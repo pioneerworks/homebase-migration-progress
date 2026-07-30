@@ -2,8 +2,6 @@ import type { Metadata } from "next";
 
 import { getSessionUser } from "@/lib/oidc-session";
 
-export const dynamic = "force-dynamic";
-
 export const metadata: Metadata = {
   title: "Sign in · Homebase migration progress",
 };
@@ -33,7 +31,7 @@ export default async function LoginPage({ searchParams }: LoginPageProps) {
   const params = await searchParams;
   const callbackUrl = firstValue(params.callbackUrl) || "/";
   const error = firstValue(params.error);
-  const user = await getSessionUser().catch(() => null);
+  const user = await getSessionUser();
   const loginHref = `/api/auth/login?callbackUrl=${encodeURIComponent(
     callbackUrl,
   )}`;

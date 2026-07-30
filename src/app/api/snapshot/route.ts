@@ -6,7 +6,7 @@ import { getSessionUser } from "@/lib/oidc-session";
 export const runtime = "nodejs";
 
 export async function GET() {
-  const user = await getSessionUser().catch(() => null);
+  const user = await getSessionUser();
   if (!user) {
     return NextResponse.json(
       { error: "Unauthorized" },

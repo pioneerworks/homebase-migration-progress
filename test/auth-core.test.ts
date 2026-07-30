@@ -110,7 +110,8 @@ test("session tokens round-trip and reject a different signing secret", async ()
   const payload = decodeJwt(token);
   assert.deepEqual(await verifySessionToken(token, authSecret), user);
   assert.equal(payload.exp! - payload.iat!, 60);
-  await assert.rejects(() => verifySessionToken(token, otherSecret));
+  assert.equal(await verifySessionToken(token, otherSecret), null);
+  assert.equal(await verifySessionToken("not-a-session-token", authSecret), null);
 });
 
 test("session secrets and lifetimes must meet minimum requirements", async () => {
