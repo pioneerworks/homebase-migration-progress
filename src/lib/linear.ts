@@ -1,6 +1,7 @@
 import { fallbackSnapshot } from "./fallback";
 import {
   DECISIONS_PROJECT,
+  MIGRATED_SITE_ORIGIN,
   PILLAR_PROJECTS,
   SNAPSHOT_TAG,
 } from "./projects";
@@ -154,7 +155,7 @@ function issueToPage(
     title: issue.title,
     ticket: issue.identifier,
     ticketUrl: issue.url,
-    liveUrl: `https://www.joinhomebase.com${path === "/" ? "" : path}`,
+    liveUrl: `${MIGRATED_SITE_ORIGIN}${path === "/" ? "" : path}`,
     pillar: pillar.key,
     pillarName: pillar.shortName,
     status: normalizeStatus(issue),

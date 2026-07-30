@@ -1,4 +1,8 @@
-import { DECISIONS_PROJECT, PILLAR_PROJECTS } from "./projects";
+import {
+  DECISIONS_PROJECT,
+  MIGRATED_SITE_ORIGIN,
+  PILLAR_PROJECTS,
+} from "./projects";
 import type {
   PageRecord,
   PageStatus,
@@ -83,7 +87,7 @@ function page(
     title: `Port ${path === "/" ? "homepage" : path}`,
     ticket,
     ticketUrl: `https://linear.app/joinhomebase/issue/${ticket}`,
-    liveUrl: `https://www.joinhomebase.com${path === "/" ? "" : path}`,
+    liveUrl: `${MIGRATED_SITE_ORIGIN}${path === "/" ? "" : path}`,
     pillar,
     pillarName: project?.shortName ?? pillar,
     status,

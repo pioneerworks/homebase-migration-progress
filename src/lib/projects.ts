@@ -1,5 +1,8 @@
 import type { ProjectConfig } from "./types";
 
+export const MIGRATED_SITE_ORIGIN =
+  "https://marketing-site-payload.vercel.app";
+
 export const PILLAR_PROJECTS: ProjectConfig[] = [
   {
     id: "56f8421b-82e7-43c9-bc92-2c6bb579f0c2",
