@@ -20,12 +20,21 @@ GitHub Actions ──POST /api/refresh──▶ Vercel
                                          ├── invalidates the tagged cache
                                          └── reads Linear server-side
 
-Browser ──GET /api/snapshot──▶ Vercel cached snapshot
+Browser ──Okta OIDC──▶ /login/callback
+                           │
+                           └── signed HttpOnly session cookie
+
+Browser + session ──GET /api/snapshot──▶ Vercel cached snapshot
 ```
 
 - `LINEAR_API_KEY` exists only in Vercel.
 - GitHub stores only the refresh URL and refresh secret.
-- Dashboard pages and the browser snapshot endpoint use app-level Basic Auth.
+- Dashboard pages and the browser snapshot endpoint require an Okta-backed
+  session.
+- The Okta access and ID tokens are handled server-side and are not stored in
+  browser JavaScript.
+- Dashboard sessions expire after a fixed eight hours; the lifetime is not
+  environment-configurable.
 - The refresh endpoint uses its own bearer secret.
 - Search engines are blocked through page metadata.
 
@@ -39,13 +48,33 @@ npm run dev
 Without `LINEAR_API_KEY`, the app renders the last verified snapshot included in
 the repository. Copy `.env.example` to `.env.local` to test live data and auth.
 
+For local development without a registered Okta callback, set
+`DASHBOARD_DEV_USER` to your email address. The bypass is ignored when
+`NODE_ENV=production` or the app is running on Vercel.
+
+## Okta application setup
+
+Use an Okta OIDC web application with the authorization-code flow enabled.
+Assign the people or groups that should have dashboard access and register these
+sign-in redirect URIs:
+
+```text
+http://localhost:3000/login/callback
+https://<production-domain>/login/callback
+```
+
+The callback URI is exact. Vercel preview deployments need their own registered
+redirect URI if Okta sign-in must work on ephemeral preview domains.
+
 ## Vercel environment variables
 
 | Variable | Purpose |
 | --- | --- |
 | `LINEAR_API_KEY` | Read-only Linear personal API key |
-| `DASHBOARD_USERNAME` | Basic Auth username; defaults to `migration` |
-| `DASHBOARD_PASSWORD` | Basic Auth password |
+| `OKTA_ISSUER` | Okta authorization server, normally `https://joinhomebase.okta.com/oauth2/default` |
+| `OKTA_CLIENT_ID` | Client ID for the dashboard's Okta OIDC web application |
+| `OKTA_CLIENT_SECRET` | Client secret used only by the server-side token exchange |
+| `AUTH_SECRET` | At least 32 random bytes used to sign dashboard sessions |
 | `DASHBOARD_REFRESH_SECRET` | Bearer token accepted by `/api/refresh` |
 
 ## GitHub Actions secrets
