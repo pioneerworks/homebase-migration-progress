@@ -524,7 +524,7 @@ export default function Dashboard({
             “Done” reflects Linear workflow state; it does not imply production
             cutover.
           </span>
-          <span>Auto-checks every 60 seconds · Linear cache refreshes every 15 minutes</span>
+          <span>Auto-checks every 60 seconds · Linear cache refreshes hourly</span>
         </div>
       </footer>
     </>

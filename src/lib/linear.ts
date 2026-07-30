@@ -241,6 +241,19 @@ function isQuestion(issue: LinearIssue): boolean {
   );
 }
 
+function isRecordedDecision(issue: LinearIssue): boolean {
+  if (isQuestion(issue)) return false;
+  const title = issue.title.toLowerCase();
+  return (
+    normalizeStatus(issue) === "done" ||
+    title.startsWith("decision:") ||
+    title.startsWith("learning:") ||
+    title.includes("deliberately") ||
+    title.includes("do not ") ||
+    title.includes("preferred over live")
+  );
+}
+
 function buildSnapshot(data: NonNullable<LinearResponse["data"]>): Snapshot {
   const projectPages = PILLAR_PROJECTS.flatMap((project) => {
     const projectResult = data[
@@ -287,12 +300,15 @@ function buildSnapshot(data: NonNullable<LinearResponse["data"]>): Snapshot {
   );
   const questions = sortedDecisionIssues
     .filter(
-      (issue) => isQuestion(issue) && normalizeStatus(issue) !== "canceled",
+      (issue) =>
+        normalizeStatus(issue) !== "done" &&
+        normalizeStatus(issue) !== "canceled" &&
+        (isQuestion(issue) || !isRecordedDecision(issue)),
     )
     .slice(0, 8)
     .map(issueToTracked);
   const recent = sortedDecisionIssues
-    .filter((issue) => !isQuestion(issue))
+    .filter(isRecordedDecision)
     .slice(0, 8)
     .map(issueToTracked);
 
@@ -341,7 +357,7 @@ export async function getSnapshot(): Promise<Snapshot> {
       },
       body: JSON.stringify({ query, variables }),
       next: {
-        revalidate: 15 * 60,
+        revalidate: 60 * 60,
         tags: [SNAPSHOT_TAG],
       },
     });

@@ -9,8 +9,8 @@ migration. It converts Linear URL tickets and migration-decision issues into:
 - recent decisions, learnings, and open questions.
 
 The dashboard is designed for Vercel Hobby during exploration. GitHub Actions
-invalidates the cached Linear snapshot every 15 minutes, while connected browsers
-check for a changed snapshot every 60 seconds.
+invalidates the cached Linear snapshot hourly, while connected browsers check for
+a changed snapshot every 60 seconds.
 
 ## Data and security model
 
