@@ -136,6 +136,172 @@ button {
   color: var(--ink);
 }
 
+.nav-user {
+  max-width: 180px;
+  margin-left: 8px;
+  padding: 0 4px 0 14px;
+  overflow: hidden;
+  border-left: 1px solid var(--line);
+  color: var(--faint);
+  font-size: 12px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav .nav-signout {
+  color: var(--accent);
+}
+
+.login-page {
+  min-height: 100svh;
+  display: grid;
+  place-items: center;
+  padding: 32px 20px;
+  background:
+    radial-gradient(
+      circle at 14% 10%,
+      oklch(0.92 0.08 66 / 0.72),
+      transparent 34%
+    ),
+    radial-gradient(
+      circle at 88% 88%,
+      oklch(0.91 0.055 305 / 0.68),
+      transparent 36%
+    ),
+    var(--bg);
+}
+
+.login-panel {
+  width: min(100%, 440px);
+  padding: 42px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: oklch(0.995 0.002 65 / 0.94);
+  box-shadow:
+    0 24px 70px oklch(0.24 0.04 305 / 0.12),
+    inset 0 1px 0 white;
+}
+
+.login-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--ink);
+  font-size: 14px;
+  font-weight: 780;
+  letter-spacing: -0.02em;
+  text-decoration: none;
+}
+
+.login-brand-mark {
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  background: var(--primary);
+  box-shadow: inset 0 0 0 1px oklch(0.45 0.13 62 / 0.25);
+  transform: rotate(-4deg);
+}
+
+.login-kicker {
+  margin-top: 38px;
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 780;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.login-panel h1 {
+  margin: 8px 0 0;
+  font-size: 38px;
+  line-height: 1.04;
+  letter-spacing: -0.045em;
+}
+
+.login-panel > p {
+  margin: 16px 0 0;
+  color: var(--muted);
+  font-size: 15px;
+}
+
+.login-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 24px;
+}
+
+.login-actions form {
+  margin: 0;
+}
+
+.login-button {
+  width: 100%;
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 26px;
+  padding: 11px 16px;
+  border: 1px solid var(--accent);
+  border-radius: 10px;
+  background: var(--accent);
+  color: white;
+  cursor: pointer;
+  font-weight: 740;
+  text-decoration: none;
+  transition:
+    background 160ms ease,
+    border-color 160ms ease,
+    transform 160ms ease;
+}
+
+.login-actions .login-button {
+  margin-top: 0;
+}
+
+.login-button:hover {
+  border-color: oklch(0.3 0.15 305);
+  background: oklch(0.3 0.15 305);
+  transform: translateY(-1px);
+}
+
+.login-button-secondary {
+  justify-content: center;
+  border-color: var(--line);
+  background: transparent;
+  color: var(--muted);
+}
+
+.login-button-secondary:hover {
+  border-color: var(--line);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.login-user {
+  margin: 0 0 5px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.login-error {
+  padding: 11px 13px;
+  border: 1px solid oklch(0.82 0.08 25);
+  border-radius: 9px;
+  background: oklch(0.97 0.025 25);
+  color: var(--danger) !important;
+  font-size: 13px !important;
+}
+
+.login-panel .login-help {
+  margin-top: 22px;
+  color: var(--faint);
+  font-size: 11px;
+  text-align: center;
+}
+
 .hero {
   padding: 64px 0 46px;
   border-bottom: 1px solid var(--line);
@@ -857,6 +1023,10 @@ footer {
 }
 
 @media (max-width: 900px) {
+  .nav-user {
+    display: none;
+  }
+
   .hero-grid {
     gap: 32px;
   }
@@ -902,6 +1072,14 @@ footer {
 
   .nav a:first-child {
     margin-left: -10px;
+  }
+
+  .login-panel {
+    padding: 32px 24px;
+  }
+
+  .login-panel h1 {
+    font-size: 34px;
   }
 
   .hero {

@@ -7,6 +7,7 @@ import type {
   Snapshot,
   TrackedIssue,
 } from "@/lib/types";
+import type { SessionUser } from "@/lib/auth-core";
 
 const pollInterval = 60_000;
 const statusLabels: Record<PageStatus, string> = {
@@ -119,8 +120,10 @@ function IssueList({
 
 export default function Dashboard({
   initialSnapshot,
+  user,
 }: {
   initialSnapshot: Snapshot;
+  user: SessionUser;
 }) {
   const [snapshot, setSnapshot] = useState(initialSnapshot);
   const [search, setSearch] = useState("");
@@ -137,6 +140,13 @@ export default function Dashboard({
         cache: "no-store",
         credentials: "same-origin",
       });
+      if (response.status === 401) {
+        const callbackUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+        window.location.assign(
+          `/login?callbackUrl=${encodeURIComponent(callbackUrl || "/")}`,
+        );
+        return;
+      }
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const nextSnapshot = (await response.json()) as Snapshot;
       setSnapshot((current) => {
@@ -204,6 +214,12 @@ export default function Dashboard({
             <a href="#activity">Activity</a>
             <a href="#pages">Completed pages</a>
             <a href="#decisions">Decisions</a>
+            <span className="nav-user" title={`Signed in as ${user.email}`}>
+              {user.name}
+            </span>
+            <a className="nav-signout" href="/api/auth/logout">
+              Sign out
+            </a>
           </nav>
         </div>
       </header>

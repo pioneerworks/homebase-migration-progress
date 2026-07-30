@@ -6,9 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "test": "tsx --test test/**/*.test.ts"
   },
   "dependencies": {
+    "jose": "6.2.3",
     "next": "16.2.12",
     "react": "19.2.8",
     "react-dom": "19.2.8"
@@ -17,6 +19,7 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
+    "tsx": "^4.20.6",
     "typescript": "^5.9.0"
   },
   "overrides": {
