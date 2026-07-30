@@ -254,6 +254,13 @@ function isRecordedDecision(issue: LinearIssue): boolean {
   );
 }
 
+function extractEstimatedBlogPosts(issue: LinearIssue | undefined): number | null {
+  if (!issue) return null;
+  const text = `${issue.title} ${issue.description ?? ""}`;
+  const match = text.match(/~?([\d,]+)\s+blog posts/i);
+  return match ? Number(match[1].replaceAll(",", "")) : null;
+}
+
 function buildSnapshot(data: NonNullable<LinearResponse["data"]>): Snapshot {
   const projectPages = PILLAR_PROJECTS.flatMap((project) => {
     const projectResult = data[
@@ -291,6 +298,23 @@ function buildSnapshot(data: NonNullable<LinearResponse["data"]>): Snapshot {
   });
 
   const decisionIssues = data.decisions?.issues.nodes ?? [];
+  const blogIssues = data.blog?.issues.nodes ?? [];
+  const blogBulkIssue = blogIssues.find((issue) =>
+    issue.title.toLowerCase().includes("bulk-import"),
+  );
+  const blogOpenFollowUps = blogIssues
+    .filter(
+      (issue) =>
+        issue.identifier !== blogBulkIssue?.identifier &&
+        !extractPath(issue) &&
+        normalizeStatus(issue) !== "done" &&
+        normalizeStatus(issue) !== "canceled",
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    )
+    .map(issueToTracked);
   const decisionCounts = countStatuses(
     decisionIssues.map((issue) => ({ status: normalizeStatus(issue) })),
   );
@@ -335,6 +359,13 @@ function buildSnapshot(data: NonNullable<LinearResponse["data"]>): Snapshot {
           new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
       )
       .slice(0, 12),
+    blogMigration: {
+      estimatedPosts: extractEstimatedBlogPosts(blogBulkIssue),
+      status: blogBulkIssue ? normalizeStatus(blogBulkIssue) : "backlog",
+      stateName: blogBulkIssue?.state.name ?? "Not tracked",
+      primaryIssue: blogBulkIssue ? issueToTracked(blogBulkIssue) : null,
+      openFollowUps: blogOpenFollowUps,
+    },
     decisions: {
       projectUrl: DECISIONS_PROJECT.url,
       counts: decisionCounts,

@@ -293,6 +293,8 @@ export default function Dashboard({
                 const completion = pillar.total
                   ? (pillar.done / pillar.total) * 100
                   : 0;
+                const isBlog = pillar.id === "blog";
+                const blogPosts = snapshot.blogMigration.estimatedPosts;
                 return (
                   <a
                     className="pillar-row"
@@ -304,7 +306,9 @@ export default function Dashboard({
                     <div className="pillar-name">
                       <strong>{pillar.name}</strong>
                       <span>
-                        {pillar.active
+                        {isBlog && snapshot.blogMigration.status === "active"
+                          ? `~${blogPosts ?? "800+"} posts currently migrating`
+                          : pillar.active
                           ? `${pillar.active} currently active`
                           : "No URL tickets active"}
                       </span>
@@ -313,7 +317,11 @@ export default function Dashboard({
                       <div className="bar-track" aria-hidden="true">
                         <span style={{ transform: `scaleX(${completion / 100})` }} />
                       </div>
-                      <span>{Math.round(completion)}%</span>
+                      <span>
+                        {isBlog
+                          ? `Hub ${Math.round(completion)}%`
+                          : `${Math.round(completion)}%`}
+                      </span>
                     </div>
                     <div className="pillar-count">
                       <strong>{pillar.done}</strong>
@@ -326,6 +334,47 @@ export default function Dashboard({
                 );
               })}
             </div>
+
+            <aside className="blog-notice" aria-labelledby="blog-notice-title">
+              <div>
+                <span className="section-kicker">Blog CMS exception</span>
+                <h3 id="blog-notice-title">
+                  The blog migration is still in progress
+                </h3>
+                <p>
+                  The <code>/blog</code> hub is tracked as one URL ticket, but that
+                  ticket represents only the hub—not the article corpus. The active
+                  bulk migration covers the remaining{" "}
+                  <strong>
+                    ~{snapshot.blogMigration.estimatedPosts ?? "800+"} Webflow
+                    posts
+                  </strong>
+                  , with content-fidelity and SEO-parity validation still underway.
+                </p>
+              </div>
+              <div className="blog-notice-links">
+                {snapshot.blogMigration.primaryIssue && (
+                  <a
+                    href={snapshot.blogMigration.primaryIssue.url}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {snapshot.blogMigration.primaryIssue.id} ·{" "}
+                    {snapshot.blogMigration.stateName} ↗
+                  </a>
+                )}
+                {snapshot.blogMigration.openFollowUps.map((issue) => (
+                  <a
+                    href={issue.url}
+                    key={issue.id}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    {issue.id} · {issue.status} ↗
+                  </a>
+                ))}
+              </div>
+            </aside>
           </div>
         </section>
 

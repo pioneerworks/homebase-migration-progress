@@ -214,6 +214,31 @@ export const fallbackSnapshot: Snapshot = {
   pillars,
   pages,
   recentActivity: pages.slice(0, 10),
+  blogMigration: {
+    estimatedPosts: 829,
+    status: "active",
+    stateName: "In Progress",
+    primaryIssue: tracked(
+      "AIA-1446",
+      "Bulk-import the remaining ~829 blog posts from Webflow",
+      "In Progress",
+      "The /blog hub is complete, but the remaining Webflow post corpus is still being imported and validated for content and SEO parity.",
+    ),
+    openFollowUps: [
+      tracked(
+        "AIA-1447",
+        "Add e2e smoke coverage for /blog and /blog/[slug]",
+        "Backlog",
+        "Add blocking coverage for the blog index, representative posts, and internal links.",
+      ),
+      tracked(
+        "AIA-1448",
+        "Add drafts + preview to the Blog Homepage global",
+        "Backlog",
+        "Add draft, preview, and live-preview support before editors rely on the migrated blog.",
+      ),
+    ],
+  },
   decisions: {
     projectUrl: DECISIONS_PROJECT.url,
     counts: {

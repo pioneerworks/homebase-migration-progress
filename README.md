@@ -65,3 +65,8 @@ If the same route appears more than once, the most advanced Linear state wins.
 
 “Done” reflects the ticket workflow state. It does not by itself mean that a page
 has been cut over to production.
+
+The Blog pillar is an explicit exception: `/blog` is one URL ticket, while the
+article corpus is tracked separately. The dashboard surfaces the active bulk-import
+issue and its remaining post estimate so a completed hub cannot be mistaken for a
+completed CMS migration.

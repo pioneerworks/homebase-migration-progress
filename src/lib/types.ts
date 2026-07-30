@@ -54,6 +54,14 @@ export interface StatusCounts {
   canceled: number;
 }
 
+export interface BlogMigration {
+  estimatedPosts: number | null;
+  status: PageStatus;
+  stateName: string;
+  primaryIssue: TrackedIssue | null;
+  openFollowUps: TrackedIssue[];
+}
+
 export interface Snapshot {
   generatedAt: string;
   source: Source;
@@ -65,6 +73,7 @@ export interface Snapshot {
   pillars: PillarProgress[];
   pages: PageRecord[];
   recentActivity: PageRecord[];
+  blogMigration: BlogMigration;
   decisions: {
     projectUrl: string;
     counts: StatusCounts;

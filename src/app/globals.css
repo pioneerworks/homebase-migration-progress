@@ -465,6 +465,54 @@ button {
   font-size: 12px;
 }
 
+.blog-notice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 32px;
+  margin-top: 24px;
+  padding: 22px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.blog-notice h3 {
+  margin: 6px 0 0;
+  font-size: 18px;
+  letter-spacing: -0.02em;
+}
+
+.blog-notice p {
+  max-width: 78ch;
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.blog-notice code {
+  color: var(--ink);
+  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-size: 12px;
+}
+
+.blog-notice-links {
+  display: flex;
+  align-items: flex-end;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+}
+
+.blog-notice-links a {
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 720;
+  text-decoration: none;
+}
+
+.blog-notice-links a:hover {
+  text-decoration: underline;
+}
+
 .external {
   color: var(--faint);
   font-size: 14px;
@@ -883,9 +931,19 @@ footer {
 
   .warning-bar .shell,
   .section-head,
+  .blog-notice,
   .footer-inner {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .blog-notice {
+    display: flex;
+    gap: 16px;
+  }
+
+  .blog-notice-links {
+    align-items: flex-start;
   }
 
   .section {
