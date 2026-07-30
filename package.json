@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint ."
+    "check": "tsc --noEmit"
   },
   "dependencies": {
     "next": "16.2.12",
@@ -17,8 +17,6 @@
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
-    "eslint": "^9.0.0",
-    "eslint-config-next": "16.2.12",
     "typescript": "^5.9.0"
   },
   "overrides": {
