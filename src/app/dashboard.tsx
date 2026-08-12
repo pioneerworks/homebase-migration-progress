@@ -494,7 +494,7 @@ export default function Dashboard({
                 <span className="section-kicker">In motion</span>
                 <h2>Recent URL activity</h2>
                 <p>
-                  The latest page tickets touched across the four migration
+                  The latest page tickets touched across the five migration
                   pillars. Active items pulse; changed states briefly highlight.
                 </p>
               </div>
@@ -559,6 +559,7 @@ export default function Dashboard({
                   ["seo", "SEO/static"],
                   ["foundations", "Foundations"],
                   ["blog", "Blog"],
+                  ["webflow-cloud", "Webflow Cloud"],
                 ].map(([value, label]) => (
                   <button
                     type="button"

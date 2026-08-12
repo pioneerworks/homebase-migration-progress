@@ -6,6 +6,7 @@ import {
   extractCutoverPathFromTitle,
   resolvedCompletion,
 } from "../src/lib/linear";
+import { PILLAR_PROJECTS } from "../src/lib/projects";
 
 test("extracts simple and nested Hosting cutover routes", () => {
   assert.equal(extractCutoverPathFromTitle("Hosting cutover: /"), "/");
@@ -80,4 +81,18 @@ test("counts canceled or duplicate page routes as resolved parity", () => {
     }),
     100,
   );
+});
+
+test("includes Webflow Cloud as a page-parity track", () => {
+  const project = PILLAR_PROJECTS.find(
+    (candidate) => candidate.key === "webflow-cloud",
+  );
+
+  assert.deepEqual(project, {
+    id: "06c2c723-c6b0-4ef5-a138-d2daacc5f52d",
+    key: "webflow-cloud",
+    name: "Webflow Cloud pages",
+    shortName: "Webflow Cloud",
+    url: "https://linear.app/joinhomebase/project/pillar-migration-webflow-cloud-pages-32be9962a7bf",
+  });
 });

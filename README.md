@@ -10,6 +10,9 @@ migration. It converts Linear URL tickets and migration-decision issues into:
 - a Hosting cutover tab with milestone progress, the labeled Phase 1 cohort, and
   the complete Webflow-to-Vercel cutover ticket inventory.
 
+Page-parity progress spans five Linear tracks: Product/content, Repeatable SEO,
+Blog CMS, Foundations/special cases, and Webflow Cloud pages.
+
 The dashboard is designed for Vercel Hobby during exploration. GitHub Actions
 invalidates the cached Linear snapshot hourly, while connected browsers check for
 a changed snapshot every 60 seconds.

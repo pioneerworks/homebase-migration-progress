@@ -131,7 +131,8 @@ const pillarCounts: Record<
   product: { done: 26, active: 2, backlog: 30, canceled: 0, total: 58 },
   seo: { done: 17, active: 1, backlog: 17, canceled: 0, total: 35 },
   blog: { done: 0, active: 1, backlog: 0, canceled: 0, total: 1 },
-  foundations: { done: 16, active: 4, backlog: 34, canceled: 0, total: 54 },
+  foundations: { done: 36, active: 0, backlog: 0, canceled: 20, total: 56 },
+  "webflow-cloud": { done: 2, active: 2, backlog: 17, canceled: 0, total: 21 },
 };
 
 const pillars = PILLAR_PROJECTS.map((project) => ({

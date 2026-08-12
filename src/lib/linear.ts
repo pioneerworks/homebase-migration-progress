@@ -50,6 +50,7 @@ interface LinearResponse {
     seo: LinearProjectResult | null;
     blog: LinearProjectResult | null;
     foundations: LinearProjectResult | null;
+    webflowCloud: LinearProjectResult | null;
     decisions: LinearProjectResult | null;
     hosting: LinearProjectResult | null;
   };
@@ -62,6 +63,7 @@ const query = `
     $seo: String!
     $blog: String!
     $foundations: String!
+    $webflowCloud: String!
     $decisions: String!
     $hosting: String!
   ) {
@@ -75,6 +77,9 @@ const query = `
       issues(first: 250, includeArchived: true) { nodes { ...IssueFields } }
     }
     foundations: project(id: $foundations) {
+      issues(first: 250, includeArchived: true) { nodes { ...IssueFields } }
+    }
+    webflowCloud: project(id: $webflowCloud) {
       issues(first: 250, includeArchived: true) { nodes { ...IssueFields } }
     }
     decisions: project(id: $decisions) {
@@ -104,6 +109,7 @@ const variables = {
   seo: PILLAR_PROJECTS[1].id,
   blog: PILLAR_PROJECTS[2].id,
   foundations: PILLAR_PROJECTS[3].id,
+  webflowCloud: PILLAR_PROJECTS[4].id,
   decisions: DECISIONS_PROJECT.id,
   hosting: HOSTING_PROJECT.id,
 };
@@ -352,13 +358,15 @@ function extractEstimatedBlogPosts(issue: LinearIssue | undefined): number | nul
 }
 
 function buildSnapshot(data: NonNullable<LinearResponse["data"]>): Snapshot {
+  const projectResults: Record<string, LinearProjectResult | null> = {
+    product: data.product,
+    seo: data.seo,
+    blog: data.blog,
+    foundations: data.foundations,
+    "webflow-cloud": data.webflowCloud,
+  };
   const projectPages = PILLAR_PROJECTS.flatMap((project) => {
-    const projectResult = data[
-      project.key as keyof Pick<
-        NonNullable<LinearResponse["data"]>,
-        "product" | "seo" | "blog" | "foundations"
-      >
-    ];
+    const projectResult = projectResults[project.key];
     return (projectResult?.issues.nodes ?? [])
       .map((issue) => issueToPage(issue, project))
       .filter((page): page is PageRecord => Boolean(page));
