@@ -1,11 +1,14 @@
 import { fallbackSnapshot } from "./fallback";
 import {
   DECISIONS_PROJECT,
+  HOSTING_PROJECT,
   MIGRATED_SITE_ORIGIN,
   PILLAR_PROJECTS,
   SNAPSHOT_TAG,
 } from "./projects";
 import type {
+  CutoverMilestoneProgress,
+  CutoverRecord,
   PageRecord,
   PageStatus,
   PillarProgress,
@@ -28,6 +31,10 @@ interface LinearIssue {
   labels: {
     nodes: Array<{ name: string }>;
   };
+  projectMilestone: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 interface LinearProjectResult {
@@ -43,6 +50,7 @@ interface LinearResponse {
     blog: LinearProjectResult | null;
     foundations: LinearProjectResult | null;
     decisions: LinearProjectResult | null;
+    hosting: LinearProjectResult | null;
   };
   errors?: Array<{ message: string }>;
 }
@@ -54,6 +62,7 @@ const query = `
     $blog: String!
     $foundations: String!
     $decisions: String!
+    $hosting: String!
   ) {
     product: project(id: $product) {
       issues(first: 250) { nodes { ...IssueFields } }
@@ -70,6 +79,9 @@ const query = `
     decisions: project(id: $decisions) {
       issues(first: 250) { nodes { ...IssueFields } }
     }
+    hosting: project(id: $hosting) {
+      issues(first: 250) { nodes { ...IssueFields } }
+    }
   }
 
   fragment IssueFields on Issue {
@@ -81,6 +93,7 @@ const query = `
     completedAt
     state { name type }
     labels { nodes { name } }
+    projectMilestone { id name }
   }
 `;
 
@@ -90,6 +103,7 @@ const variables = {
   blog: PILLAR_PROJECTS[2].id,
   foundations: PILLAR_PROJECTS[3].id,
   decisions: DECISIONS_PROJECT.id,
+  hosting: HOSTING_PROJECT.id,
 };
 
 function normalizeStatus(issue: LinearIssue): PageStatus {
@@ -166,6 +180,41 @@ function issueToPage(
   };
 }
 
+const phaseOnePathOrder = [
+  "/payroll",
+  "/payroll-lp",
+  "/food-beverage",
+  "/time-clock/cloud-based-time-tracking",
+  "/homebase-vs-wheniwork",
+];
+
+export function extractCutoverPathFromTitle(title: string): string | null {
+  const match = title.match(
+    /^Hosting cutover:\s*(https?:\/\/\S+|\/\S*)(?:\s|$)/i,
+  );
+  return match ? normalizePath(match[1]) : null;
+}
+
+export function cutoverCompletion(counts: StatusCounts): number {
+  const rolloutTotal = counts.done + counts.active + counts.backlog;
+  return rolloutTotal ? (counts.done / rolloutTotal) * 100 : 0;
+}
+
+function issueToCutover(issue: LinearIssue): CutoverRecord {
+  return {
+    path: extractCutoverPathFromTitle(issue.title),
+    title: issue.title,
+    ticket: issue.identifier,
+    ticketUrl: issue.url,
+    status: normalizeStatus(issue),
+    stateName: issue.state.name,
+    updatedAt: issue.updatedAt,
+    completedAt: issue.completedAt,
+    labels: issue.labels.nodes.map((label) => label.name),
+    milestone: issue.projectMilestone?.name ?? "Cross-project",
+  };
+}
+
 const statusRank: Record<PageStatus, number> = {
   done: 4,
   active: 3,
@@ -199,6 +248,30 @@ function countStatuses(pages: Array<{ status: PageStatus }>): StatusCounts {
   };
   for (const page of pages) counts[page.status] += 1;
   return counts;
+}
+
+function countCutoverMilestones(
+  tickets: CutoverRecord[],
+  issues: LinearIssue[],
+): CutoverMilestoneProgress[] {
+  const milestoneIds = new Map(
+    issues.map((issue) => [
+      issue.projectMilestone?.name ?? "Cross-project",
+      issue.projectMilestone?.id ?? "cross-project",
+    ]),
+  );
+  const names = [...new Set(tickets.map((ticket) => ticket.milestone))].sort(
+    (a, b) => {
+      if (a === "Cross-project") return 1;
+      if (b === "Cross-project") return -1;
+      return a.localeCompare(b);
+    },
+  );
+  return names.map((name) => ({
+    id: milestoneIds.get(name) ?? name,
+    name,
+    ...countStatuses(tickets.filter((ticket) => ticket.milestone === name)),
+  }));
 }
 
 function cleanSummary(description: string | null, stateName: string): string {
@@ -337,6 +410,35 @@ function buildSnapshot(data: NonNullable<LinearResponse["data"]>): Snapshot {
     .slice(0, 8)
     .map(issueToTracked);
 
+  const hostingIssues = data.hosting?.issues.nodes ?? [];
+  const cutoverTickets = hostingIssues.map(issueToCutover).sort((a, b) => {
+    const aPhaseOne = a.labels.includes("Phase 1") ? 1 : 0;
+    const bPhaseOne = b.labels.includes("Phase 1") ? 1 : 0;
+    if (aPhaseOne !== bPhaseOne) return bPhaseOne - aPhaseOne;
+    if (statusRank[a.status] !== statusRank[b.status]) {
+      return statusRank[b.status] - statusRank[a.status];
+    }
+    const milestoneDiff = a.milestone.localeCompare(b.milestone);
+    if (milestoneDiff) return milestoneDiff;
+    return (a.path ?? a.title).localeCompare(b.path ?? b.title);
+  });
+  const cutoverCounts = countStatuses(cutoverTickets);
+  const cutoverRolloutTotal =
+    cutoverCounts.done + cutoverCounts.active + cutoverCounts.backlog;
+  const phaseOne = cutoverTickets
+    .filter((ticket) => ticket.labels.includes("Phase 1"))
+    .sort((a, b) => {
+      const aIndex = phaseOnePathOrder.indexOf(a.path ?? "");
+      const bIndex = phaseOnePathOrder.indexOf(b.path ?? "");
+      return (aIndex === -1 ? 999 : aIndex) - (bIndex === -1 ? 999 : bIndex);
+    });
+  const cutoverRecentlyCompleted = cutoverTickets.filter(
+    (ticket) =>
+      ticket.status === "done" &&
+      ticket.completedAt &&
+      new Date(ticket.completedAt).getTime() >= sevenDaysAgo,
+  ).length;
+
   return {
     generatedAt: new Date().toISOString(),
     source: "linear",
@@ -372,6 +474,18 @@ function buildSnapshot(data: NonNullable<LinearResponse["data"]>): Snapshot {
       counts: decisionCounts,
       recent,
       questions,
+    },
+    hostingCutover: {
+      projectUrl: HOSTING_PROJECT.url,
+      overall: {
+        ...cutoverCounts,
+        rolloutTotal: cutoverRolloutTotal,
+        completion: cutoverCompletion(cutoverCounts),
+        recentlyCompleted: cutoverRecentlyCompleted,
+      },
+      milestones: countCutoverMilestones(cutoverTickets, hostingIssues),
+      phaseOne,
+      tickets: cutoverTickets,
     },
   };
 }

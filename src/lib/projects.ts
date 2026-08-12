@@ -42,4 +42,12 @@ export const DECISIONS_PROJECT: ProjectConfig = {
   url: "https://linear.app/joinhomebase/project/migration-decisions-learnings-f672cd82c870/issues?layout=list&ordering=priority&grouping=workflowState&subGrouping=none&showCompletedIssues=all&showSubIssues=true&showTriageIssues=true",
 };
 
+export const HOSTING_PROJECT: ProjectConfig = {
+  id: "d98d04b1-af0a-4657-a74b-66aad9c010bf",
+  key: "hosting",
+  name: "Hosting Migration — Webflow to Vercel",
+  shortName: "Hosting cutover",
+  url: "https://linear.app/joinhomebase/project/hosting-migration-webflow-to-vercel-9a1247e7f6e6/overview",
+};
+
 export const SNAPSHOT_TAG = "linear-migration-snapshot";

@@ -1,9 +1,11 @@
 import {
   DECISIONS_PROJECT,
+  HOSTING_PROJECT,
   MIGRATED_SITE_ORIGIN,
   PILLAR_PROJECTS,
 } from "./projects";
 import type {
+  CutoverRecord,
   PageRecord,
   PageStatus,
   PillarProgress,
@@ -73,7 +75,8 @@ const completedPages: Array<[string, string, string]> = [
   ["/payroll-talk-to-us", "AIA-932", "foundations"],
 ];
 
-const fallbackGeneratedAt = "2026-07-30T12:00:00.000Z";
+const fallbackGeneratedAt = "2026-08-12T14:24:55.000Z";
+const legacyFallbackTimestamp = "2026-07-30T12:00:00.000Z";
 
 function page(
   path: string,
@@ -92,8 +95,8 @@ function page(
     pillarName: project?.shortName ?? pillar,
     status,
     stateName: status === "done" ? "Done" : "Backlog",
-    updatedAt: fallbackGeneratedAt,
-    completedAt: status === "done" ? fallbackGeneratedAt : null,
+    updatedAt: legacyFallbackTimestamp,
+    completedAt: status === "done" ? legacyFallbackTimestamp : null,
     labels: [],
   };
 }
@@ -101,6 +104,25 @@ function page(
 const pages = completedPages.map(([path, ticket, pillar]) =>
   page(path, ticket, pillar),
 );
+
+const phaseOneCutoverTickets: CutoverRecord[] = [
+  ["/payroll", "AIA-1602"],
+  ["/payroll-lp", "AIA-1684"],
+  ["/food-beverage", "AIA-1543"],
+  ["/time-clock/cloud-based-time-tracking", "AIA-2094"],
+  ["/homebase-vs-wheniwork", "AIA-2093"],
+].map(([path, ticket]) => ({
+  path,
+  title: `Hosting cutover: ${path}`,
+  ticket,
+  ticketUrl: `https://linear.app/joinhomebase/issue/${ticket}`,
+  status: "backlog",
+  stateName: "Backlog",
+  updatedAt: legacyFallbackTimestamp,
+  completedAt: null,
+  labels: ["Phase 1"],
+  milestone: "Noindex, foundations & special cases",
+}));
 
 const pillarCounts: Record<
   string,
@@ -205,7 +227,7 @@ export const fallbackSnapshot: Snapshot = {
   generatedAt: fallbackGeneratedAt,
   source: "fallback",
   warning:
-    "Showing the last verified snapshot. Add LINEAR_API_KEY in Vercel to enable live Linear data.",
+    "Showing the last verified snapshot. Add LINEAR_API_KEY in Vercel to enable the full live Linear inventory.",
   overall: {
     total: 148,
     done: 59,
@@ -254,5 +276,67 @@ export const fallbackSnapshot: Snapshot = {
     },
     recent,
     questions,
+  },
+  hostingCutover: {
+    projectUrl: HOSTING_PROJECT.url,
+    overall: {
+      total: 153,
+      rolloutTotal: 142,
+      done: 0,
+      active: 0,
+      backlog: 142,
+      canceled: 11,
+      completion: 0,
+      recentlyCompleted: 0,
+    },
+    milestones: [
+      {
+        id: "3e8498a2-0858-4ff5-a677-500f06ce08e4",
+        name: "Product/content families",
+        done: 0,
+        active: 0,
+        backlog: 59,
+        canceled: 0,
+        total: 59,
+      },
+      {
+        id: "97755eb2-662f-4972-80fc-518a896f7e3b",
+        name: "Noindex, foundations & special cases",
+        done: 0,
+        active: 0,
+        backlog: 50,
+        canceled: 7,
+        total: 57,
+      },
+      {
+        id: "e3bbd700-2527-4118-9d5d-2d3b2bc5991d",
+        name: "Repeatable SEO, static & industry",
+        done: 0,
+        active: 0,
+        backlog: 31,
+        canceled: 4,
+        total: 35,
+      },
+      {
+        id: "164b7d76-5e3e-44cd-b4a5-eba3edf7534f",
+        name: "Blog CMS & hub",
+        done: 0,
+        active: 0,
+        backlog: 1,
+        canceled: 0,
+        total: 1,
+      },
+      {
+        id: "cross-project",
+        name: "Cross-project",
+        done: 0,
+        active: 0,
+        backlog: 1,
+        canceled: 0,
+        total: 1,
+      },
+    ],
+    phaseOne: phaseOneCutoverTickets,
+    tickets: [],
   },
 };

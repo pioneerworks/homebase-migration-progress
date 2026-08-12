@@ -36,6 +36,24 @@ export interface PillarProgress {
   total: number;
 }
 
+export interface CutoverRecord {
+  path: string | null;
+  title: string;
+  ticket: string;
+  ticketUrl: string;
+  status: PageStatus;
+  stateName: string;
+  updatedAt: string;
+  completedAt: string | null;
+  labels: string[];
+  milestone: string;
+}
+
+export interface CutoverMilestoneProgress extends StatusCounts {
+  id: string;
+  name: string;
+}
+
 export interface TrackedIssue {
   id: string;
   title: string;
@@ -79,5 +97,16 @@ export interface Snapshot {
     counts: StatusCounts;
     recent: TrackedIssue[];
     questions: TrackedIssue[];
+  };
+  hostingCutover: {
+    projectUrl: string;
+    overall: StatusCounts & {
+      rolloutTotal: number;
+      completion: number;
+      recentlyCompleted: number;
+    };
+    milestones: CutoverMilestoneProgress[];
+    phaseOne: CutoverRecord[];
+    tickets: CutoverRecord[];
   };
 }
