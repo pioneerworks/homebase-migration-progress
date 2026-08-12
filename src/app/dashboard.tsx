@@ -38,11 +38,13 @@ function ProgressRing({
   done,
   total,
   unit = "URLs",
+  verb = "complete",
 }: {
   completion: number;
   done: number;
   total: number;
   unit?: string;
+  verb?: string;
 }) {
   const radius = 66;
   const circumference = 2 * Math.PI * radius;
@@ -51,7 +53,7 @@ function ProgressRing({
     <div
       className="progress-ring"
       role="img"
-      aria-label={`${completion.toFixed(1)} percent of tracked ${unit.toLowerCase()} are complete`}
+      aria-label={`${completion.toFixed(1)} percent of tracked ${unit.toLowerCase()} are ${verb}`}
     >
       <svg viewBox="0 0 160 160" aria-hidden="true">
         <circle className="ring-track" cx="80" cy="80" r={radius} />
@@ -328,7 +330,7 @@ export default function Dashboard({
               }
               done={
                 tab === "migration"
-                  ? snapshot.overall.done
+                  ? snapshot.overall.done + snapshot.overall.canceled
                   : snapshot.hostingCutover.overall.done
               }
               total={
@@ -337,6 +339,7 @@ export default function Dashboard({
                   : snapshot.hostingCutover.overall.rolloutTotal
               }
               unit={tab === "migration" ? "URLs" : "tickets"}
+              verb={tab === "migration" ? "resolved" : "complete"}
             />
           </div>
         </section>
@@ -360,37 +363,41 @@ export default function Dashboard({
                 <h2>URL parity progress</h2>
                 <p>
                   Unique page-port tickets only. Decision, QA, and infrastructure
-                  work are excluded from this percentage.
+                  work are excluded. Done, canceled, and duplicate routes count as
+                  resolved parity.
                 </p>
               </div>
-              <strong className="progress-summary">{percentage}% complete</strong>
+              <strong className="progress-summary">
+                {percentage}% parity complete
+              </strong>
             </div>
 
             <div className="metric-band" aria-label="Migration progress summary">
               <div>
-                <strong>{snapshot.overall.done}</strong>
-                <span>URLs complete</span>
+                <strong>
+                  {snapshot.overall.done + snapshot.overall.canceled}
+                </strong>
+                <span>URLs resolved</span>
               </div>
               <div>
                 <strong>{snapshot.overall.active}</strong>
                 <span>Active or in review</span>
               </div>
               <div>
-                <strong>
-                  {snapshot.overall.backlog + snapshot.overall.canceled}
-                </strong>
+                <strong>{snapshot.overall.backlog}</strong>
                 <span>Remaining</span>
               </div>
               <div className="metric-recent">
                 <strong>+{snapshot.overall.recentlyCompleted}</strong>
-                <span>Completed in 7 days</span>
+                <span>Resolved in 7 days</span>
               </div>
             </div>
 
             <div className="pillar-list" aria-label="Progress by migration pillar">
               {snapshot.pillars.map((pillar) => {
+                const resolved = pillar.done + pillar.canceled;
                 const completion = pillar.total
-                  ? (pillar.done / pillar.total) * 100
+                  ? (resolved / pillar.total) * 100
                   : 0;
                 const isBlog = pillar.id === "blog";
                 const blogPosts = snapshot.blogMigration.estimatedPosts;
@@ -409,6 +416,12 @@ export default function Dashboard({
                           ? `~${blogPosts ?? "800+"} posts currently migrating`
                           : pillar.active
                           ? `${pillar.active} currently active`
+                          : pillar.backlog && pillar.canceled
+                          ? `${pillar.backlog} remaining · ${pillar.canceled} canceled or duplicate`
+                          : pillar.backlog
+                          ? `${pillar.backlog} remaining`
+                          : pillar.canceled
+                          ? `${pillar.canceled} canceled or duplicate`
                           : "No URL tickets active"}
                       </span>
                     </div>
@@ -423,7 +436,7 @@ export default function Dashboard({
                       </span>
                     </div>
                     <div className="pillar-count">
-                      <strong>{pillar.done}</strong>
+                      <strong>{resolved}</strong>
                       <span>of {pillar.total}</span>
                     </div>
                     <span className="external" aria-hidden="true">
@@ -481,11 +494,20 @@ export default function Dashboard({
           <div className="shell">
             <div className="section-head">
               <div>
-                <span className="section-kicker">In motion</span>
-                <h2>Recent URL activity</h2>
+                <span className="section-kicker">
+                  {snapshot.source === "linear"
+                    ? "In motion"
+                    : "Verified activity subset"}
+                </span>
+                <h2>
+                  {snapshot.source === "linear"
+                    ? "Recent URL activity"
+                    : "Retained URL activity"}
+                </h2>
                 <p>
-                  The latest page tickets touched across the four migration
-                  pillars. Active items pulse; changed states briefly highlight.
+                  {snapshot.source === "linear"
+                    ? "The latest page tickets touched across the five migration pillars. Active items pulse; changed states briefly highlight."
+                    : "Live Linear is unavailable. These retained records are not the current activity feed; use the progress totals above for the latest verified snapshot."}
                 </p>
               </div>
             </div>
@@ -520,11 +542,20 @@ export default function Dashboard({
           <div className="shell">
             <div className="section-head">
               <div>
-                <span className="section-kicker">Completed inventory</span>
-                <h2>Pages marked Done</h2>
+                <span className="section-kicker">
+                  {snapshot.source === "linear"
+                    ? "Completed inventory"
+                    : "Verified inventory subset"}
+                </span>
+                <h2>
+                  {snapshot.source === "linear"
+                    ? "Pages marked Done"
+                    : "Verified pages marked Done"}
+                </h2>
                 <p>
-                  Every route links to the live page and its associated Linear
-                  ticket.
+                  {snapshot.source === "linear"
+                    ? "Every route links to the live page and its associated Linear ticket."
+                    : "Live Linear is unavailable. These retained route records are a verified subset; the progress totals above use the newer fallback snapshot."}
                 </p>
               </div>
               <span className="result-count">
@@ -549,6 +580,7 @@ export default function Dashboard({
                   ["seo", "SEO/static"],
                   ["foundations", "Foundations"],
                   ["blog", "Blog"],
+                  ["webflow-cloud", "Webflow Cloud"],
                 ].map(([value, label]) => (
                   <button
                     type="button"

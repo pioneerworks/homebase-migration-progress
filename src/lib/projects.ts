@@ -32,6 +32,13 @@ export const PILLAR_PROJECTS: ProjectConfig[] = [
     shortName: "Foundations/special cases",
     url: "https://linear.app/joinhomebase/project/pillar-migration-noindex-foundations-and-special-cases-af82d50959a7",
   },
+  {
+    id: "06c2c723-c6b0-4ef5-a138-d2daacc5f52d",
+    key: "webflow-cloud",
+    name: "Webflow Cloud pages",
+    shortName: "Webflow Cloud",
+    url: "https://linear.app/joinhomebase/project/pillar-migration-webflow-cloud-pages-32be9962a7bf",
+  },
 ];
 
 export const DECISIONS_PROJECT: ProjectConfig = {

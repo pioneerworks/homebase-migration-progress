@@ -57,7 +57,6 @@ const completedPages: Array<[string, string, string]> = [
   ["/time-clock", "AIA-978", "product"],
   ["/awards", "AIA-988", "product"],
   ["/state-labor-laws", "AIA-940", "seo"],
-  ["/free-timesheets-smallbusiness-lp", "AIA-967", "seo"],
   ["/restaurants", "AIA-948", "seo"],
   ["/bug-bounty-program", "AIA-1027", "seo"],
   ["/privacy", "AIA-955", "seo"],
@@ -73,6 +72,8 @@ const completedPages: Array<[string, string, string]> = [
   ["/events-talk-to-us", "AIA-930", "foundations"],
   ["/accountants-talk-to-us", "AIA-931", "foundations"],
   ["/payroll-talk-to-us", "AIA-932", "foundations"],
+  ["/hourly-wage-calculator", "AIA-2069", "webflow-cloud"],
+  ["/press", "AIA-2062", "webflow-cloud"],
 ];
 
 const fallbackGeneratedAt = "2026-08-12T14:24:55.000Z";
@@ -128,10 +129,11 @@ const pillarCounts: Record<
   string,
   Pick<PillarProgress, "done" | "active" | "backlog" | "canceled" | "total">
 > = {
-  product: { done: 26, active: 2, backlog: 30, canceled: 0, total: 58 },
-  seo: { done: 17, active: 1, backlog: 17, canceled: 0, total: 35 },
-  blog: { done: 0, active: 1, backlog: 0, canceled: 0, total: 1 },
-  foundations: { done: 16, active: 4, backlog: 34, canceled: 0, total: 54 },
+  product: { done: 59, active: 1, backlog: 0, canceled: 0, total: 60 },
+  seo: { done: 31, active: 0, backlog: 0, canceled: 4, total: 35 },
+  blog: { done: 1, active: 0, backlog: 0, canceled: 0, total: 1 },
+  foundations: { done: 36, active: 0, backlog: 0, canceled: 20, total: 56 },
+  "webflow-cloud": { done: 2, active: 2, backlog: 17, canceled: 0, total: 21 },
 };
 
 const pillars = PILLAR_PROJECTS.map((project) => ({
@@ -229,13 +231,13 @@ export const fallbackSnapshot: Snapshot = {
   warning:
     "Showing the last verified snapshot. Add LINEAR_API_KEY in Vercel to enable the full live Linear inventory.",
   overall: {
-    total: 148,
-    done: 59,
-    active: 8,
-    backlog: 81,
-    canceled: 0,
-    completion: 39.9,
-    recentlyCompleted: 10,
+    total: 165,
+    done: 127,
+    active: 3,
+    backlog: 16,
+    canceled: 19,
+    completion: 88.5,
+    recentlyCompleted: 29,
   },
   pillars,
   pages,
