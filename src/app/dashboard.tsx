@@ -38,11 +38,13 @@ function ProgressRing({
   done,
   total,
   unit = "URLs",
+  verb = "complete",
 }: {
   completion: number;
   done: number;
   total: number;
   unit?: string;
+  verb?: string;
 }) {
   const radius = 66;
   const circumference = 2 * Math.PI * radius;
@@ -51,7 +53,7 @@ function ProgressRing({
     <div
       className="progress-ring"
       role="img"
-      aria-label={`${completion.toFixed(1)} percent of tracked ${unit.toLowerCase()} are complete`}
+      aria-label={`${completion.toFixed(1)} percent of tracked ${unit.toLowerCase()} are ${verb}`}
     >
       <svg viewBox="0 0 160 160" aria-hidden="true">
         <circle className="ring-track" cx="80" cy="80" r={radius} />
@@ -337,6 +339,7 @@ export default function Dashboard({
                   : snapshot.hostingCutover.overall.rolloutTotal
               }
               unit={tab === "migration" ? "URLs" : "tickets"}
+              verb={tab === "migration" ? "resolved" : "complete"}
             />
           </div>
         </section>
@@ -491,11 +494,20 @@ export default function Dashboard({
           <div className="shell">
             <div className="section-head">
               <div>
-                <span className="section-kicker">In motion</span>
-                <h2>Recent URL activity</h2>
+                <span className="section-kicker">
+                  {snapshot.source === "linear"
+                    ? "In motion"
+                    : "Verified activity subset"}
+                </span>
+                <h2>
+                  {snapshot.source === "linear"
+                    ? "Recent URL activity"
+                    : "Retained URL activity"}
+                </h2>
                 <p>
-                  The latest page tickets touched across the five migration
-                  pillars. Active items pulse; changed states briefly highlight.
+                  {snapshot.source === "linear"
+                    ? "The latest page tickets touched across the five migration pillars. Active items pulse; changed states briefly highlight."
+                    : "Live Linear is unavailable. These retained records are not the current activity feed; use the progress totals above for the latest verified snapshot."}
                 </p>
               </div>
             </div>
@@ -530,11 +542,20 @@ export default function Dashboard({
           <div className="shell">
             <div className="section-head">
               <div>
-                <span className="section-kicker">Completed inventory</span>
-                <h2>Pages marked Done</h2>
+                <span className="section-kicker">
+                  {snapshot.source === "linear"
+                    ? "Completed inventory"
+                    : "Verified inventory subset"}
+                </span>
+                <h2>
+                  {snapshot.source === "linear"
+                    ? "Pages marked Done"
+                    : "Verified pages marked Done"}
+                </h2>
                 <p>
-                  Every route links to the live page and its associated Linear
-                  ticket.
+                  {snapshot.source === "linear"
+                    ? "Every route links to the live page and its associated Linear ticket."
+                    : "Live Linear is unavailable. These retained route records are a verified subset; the progress totals above use the newer fallback snapshot."}
                 </p>
               </div>
               <span className="result-count">

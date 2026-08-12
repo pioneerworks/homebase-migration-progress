@@ -6,6 +6,7 @@ import {
   extractCutoverPathFromTitle,
   resolvedCompletion,
 } from "../src/lib/linear";
+import { fallbackSnapshot } from "../src/lib/fallback";
 import { PILLAR_PROJECTS } from "../src/lib/projects";
 
 test("extracts simple and nested Hosting cutover routes", () => {
@@ -95,4 +96,29 @@ test("includes Webflow Cloud as a page-parity track", () => {
     shortName: "Webflow Cloud",
     url: "https://linear.app/joinhomebase/project/pillar-migration-webflow-cloud-pages-32be9962a7bf",
   });
+});
+
+test("fallback parity matches the verified five-track snapshot", () => {
+  assert.deepEqual(fallbackSnapshot.overall, {
+    total: 165,
+    done: 127,
+    active: 3,
+    backlog: 16,
+    canceled: 19,
+    completion: 88.5,
+    recentlyCompleted: 29,
+  });
+  assert.deepEqual(
+    fallbackSnapshot.pages
+      .filter((page) => page.pillar === "webflow-cloud")
+      .map((page) => page.path)
+      .sort(),
+    ["/hourly-wage-calculator", "/press"],
+  );
+  assert.equal(
+    fallbackSnapshot.pages.some(
+      (page) => page.path === "/free-timesheets-smallbusiness-lp",
+    ),
+    false,
+  );
 });
