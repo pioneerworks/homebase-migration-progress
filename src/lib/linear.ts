@@ -24,6 +24,7 @@ interface LinearIssue {
   description: string | null;
   updatedAt: string;
   completedAt: string | null;
+  canceledAt: string | null;
   state: {
     name: string;
     type: string;
@@ -65,22 +66,22 @@ const query = `
     $hosting: String!
   ) {
     product: project(id: $product) {
-      issues(first: 250) { nodes { ...IssueFields } }
+      issues(first: 250, includeArchived: true) { nodes { ...IssueFields } }
     }
     seo: project(id: $seo) {
-      issues(first: 250) { nodes { ...IssueFields } }
+      issues(first: 250, includeArchived: true) { nodes { ...IssueFields } }
     }
     blog: project(id: $blog) {
-      issues(first: 250) { nodes { ...IssueFields } }
+      issues(first: 250, includeArchived: true) { nodes { ...IssueFields } }
     }
     foundations: project(id: $foundations) {
-      issues(first: 250) { nodes { ...IssueFields } }
+      issues(first: 250, includeArchived: true) { nodes { ...IssueFields } }
     }
     decisions: project(id: $decisions) {
       issues(first: 250) { nodes { ...IssueFields } }
     }
     hosting: project(id: $hosting) {
-      issues(first: 250) { nodes { ...IssueFields } }
+      issues(first: 250, includeArchived: true) { nodes { ...IssueFields } }
     }
   }
 
@@ -91,6 +92,7 @@ const query = `
     description
     updatedAt
     completedAt
+    canceledAt
     state { name type }
     labels { nodes { name } }
     projectMilestone { id name }
@@ -110,7 +112,15 @@ function normalizeStatus(issue: LinearIssue): PageStatus {
   const type = issue.state.type.toLowerCase();
   const name = issue.state.name.toLowerCase();
   if (type === "completed" || name === "done") return "done";
-  if (type === "canceled" || type === "cancelled") return "canceled";
+  if (
+    type === "canceled" ||
+    type === "cancelled" ||
+    type === "duplicate" ||
+    name.includes("cancel") ||
+    name.includes("duplicate")
+  ) {
+    return "canceled";
+  }
   if (
     type === "started" ||
     name.includes("progress") ||
@@ -175,7 +185,7 @@ function issueToPage(
     status: normalizeStatus(issue),
     stateName: issue.state.name,
     updatedAt: issue.updatedAt,
-    completedAt: issue.completedAt,
+    completedAt: issue.completedAt ?? issue.canceledAt,
     labels: issue.labels.nodes.map((label) => label.name),
   };
 }
@@ -248,6 +258,12 @@ function countStatuses(pages: Array<{ status: PageStatus }>): StatusCounts {
   };
   for (const page of pages) counts[page.status] += 1;
   return counts;
+}
+
+export function resolvedCompletion(counts: StatusCounts): number {
+  return counts.total
+    ? ((counts.done + counts.canceled) / counts.total) * 100
+    : 0;
 }
 
 function countCutoverMilestones(
@@ -353,7 +369,7 @@ function buildSnapshot(data: NonNullable<LinearResponse["data"]>): Snapshot {
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
   const recentlyCompleted = pages.filter(
     (page) =>
-      page.status === "done" &&
+      (page.status === "done" || page.status === "canceled") &&
       page.completedAt &&
       new Date(page.completedAt).getTime() >= sevenDaysAgo,
   ).length;
@@ -444,7 +460,7 @@ function buildSnapshot(data: NonNullable<LinearResponse["data"]>): Snapshot {
     source: "linear",
     overall: {
       ...counts,
-      completion: counts.total ? (counts.done / counts.total) * 100 : 0,
+      completion: resolvedCompletion(counts),
       recentlyCompleted,
     },
     pillars,

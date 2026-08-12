@@ -94,6 +94,13 @@ Only unique page-port tickets with a route are included. Duplicate route tickets
 quality work, decisions, and infrastructure issues do not inflate the denominator.
 If the same route appears more than once, the most advanced Linear state wins.
 
+Page parity treats both Done and Canceled/Duplicate route tickets as resolved.
+Canceled routes stay visible in activity with their actual Linear status, but they
+do not remain in the outstanding migration count. Remaining work is Active plus
+Backlog only, and the seven-day metric reports routes resolved through either
+completion or cancellation. Archived route tickets are included so a cancellation
+does not disappear from parity when Linear archives it.
+
 “Done” reflects the ticket workflow state. It does not by itself mean that a page
 has been cut over to production.
 

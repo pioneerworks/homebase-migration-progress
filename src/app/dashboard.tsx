@@ -328,7 +328,7 @@ export default function Dashboard({
               }
               done={
                 tab === "migration"
-                  ? snapshot.overall.done
+                  ? snapshot.overall.done + snapshot.overall.canceled
                   : snapshot.hostingCutover.overall.done
               }
               total={
@@ -360,37 +360,41 @@ export default function Dashboard({
                 <h2>URL parity progress</h2>
                 <p>
                   Unique page-port tickets only. Decision, QA, and infrastructure
-                  work are excluded from this percentage.
+                  work are excluded. Done, canceled, and duplicate routes count as
+                  resolved parity.
                 </p>
               </div>
-              <strong className="progress-summary">{percentage}% complete</strong>
+              <strong className="progress-summary">
+                {percentage}% parity complete
+              </strong>
             </div>
 
             <div className="metric-band" aria-label="Migration progress summary">
               <div>
-                <strong>{snapshot.overall.done}</strong>
-                <span>URLs complete</span>
+                <strong>
+                  {snapshot.overall.done + snapshot.overall.canceled}
+                </strong>
+                <span>URLs resolved</span>
               </div>
               <div>
                 <strong>{snapshot.overall.active}</strong>
                 <span>Active or in review</span>
               </div>
               <div>
-                <strong>
-                  {snapshot.overall.backlog + snapshot.overall.canceled}
-                </strong>
+                <strong>{snapshot.overall.backlog}</strong>
                 <span>Remaining</span>
               </div>
               <div className="metric-recent">
                 <strong>+{snapshot.overall.recentlyCompleted}</strong>
-                <span>Completed in 7 days</span>
+                <span>Resolved in 7 days</span>
               </div>
             </div>
 
             <div className="pillar-list" aria-label="Progress by migration pillar">
               {snapshot.pillars.map((pillar) => {
+                const resolved = pillar.done + pillar.canceled;
                 const completion = pillar.total
-                  ? (pillar.done / pillar.total) * 100
+                  ? (resolved / pillar.total) * 100
                   : 0;
                 const isBlog = pillar.id === "blog";
                 const blogPosts = snapshot.blogMigration.estimatedPosts;
@@ -409,6 +413,12 @@ export default function Dashboard({
                           ? `~${blogPosts ?? "800+"} posts currently migrating`
                           : pillar.active
                           ? `${pillar.active} currently active`
+                          : pillar.backlog && pillar.canceled
+                          ? `${pillar.backlog} remaining · ${pillar.canceled} canceled or duplicate`
+                          : pillar.backlog
+                          ? `${pillar.backlog} remaining`
+                          : pillar.canceled
+                          ? `${pillar.canceled} canceled or duplicate`
                           : "No URL tickets active"}
                       </span>
                     </div>
@@ -423,7 +433,7 @@ export default function Dashboard({
                       </span>
                     </div>
                     <div className="pillar-count">
-                      <strong>{pillar.done}</strong>
+                      <strong>{resolved}</strong>
                       <span>of {pillar.total}</span>
                     </div>
                     <span className="external" aria-hidden="true">
