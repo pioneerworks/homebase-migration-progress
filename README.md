@@ -7,6 +7,8 @@ migration. It converts Linear URL tickets and migration-decision issues into:
 - recent page activity and work in progress;
 - a searchable inventory of completed routes with live-page and Linear links;
 - recent decisions, learnings, and open questions.
+- a Hosting cutover tab with milestone progress, the labeled Phase 1 cohort, and
+  the complete Webflow-to-Vercel cutover ticket inventory.
 
 The dashboard is designed for Vercel Hobby during exploration. GitHub Actions
 invalidates the cached Linear snapshot hourly, while connected browsers check for
@@ -94,6 +96,10 @@ If the same route appears more than once, the most advanced Linear state wins.
 
 “Done” reflects the ticket workflow state. It does not by itself mean that a page
 has been cut over to production.
+
+The Hosting cutover view reads every ticket in the dedicated Hosting Migration
+project. Canceled tickets remain visible but are excluded from its completion
+percentage. The Phase 1 cohort is derived from the Linear `Phase 1` label.
 
 The Blog pillar is an explicit exception: `/blog` is one URL ticket, while the
 article corpus is tracked separately. The dashboard surfaces the active bulk-import

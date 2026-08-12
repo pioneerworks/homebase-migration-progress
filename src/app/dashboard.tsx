@@ -125,6 +125,7 @@ export default function Dashboard({
   initialSnapshot: Snapshot;
   user: SessionUser;
 }) {
+  const [tab, setTab] = useState<"migration" | "cutover">("migration");
   const [snapshot, setSnapshot] = useState(initialSnapshot);
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
@@ -197,23 +198,78 @@ export default function Dashboard({
     });
   }, [filter, search, snapshot.generatedAt, snapshot.pages]);
 
+  const filteredCutoverTickets = useMemo(() => {
+    const normalizedSearch = search.trim().toLowerCase();
+    return snapshot.hostingCutover.tickets.filter((ticket) => {
+      const matchesSearch =
+        !normalizedSearch ||
+        ticket.path?.toLowerCase().includes(normalizedSearch) ||
+        ticket.ticket.toLowerCase().includes(normalizedSearch) ||
+        ticket.title.toLowerCase().includes(normalizedSearch) ||
+        ticket.milestone.toLowerCase().includes(normalizedSearch);
+      const matchesFilter =
+        filter === "all" ||
+        (filter === "phase-one" && ticket.labels.includes("Phase 1")) ||
+        ticket.status === filter;
+      return matchesSearch && matchesFilter;
+    });
+  }, [filter, search, snapshot.hostingCutover.tickets]);
+
+  const changeTab = (next: "migration" | "cutover") => {
+    setTab(next);
+    setSearch("");
+    setFilter("all");
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   const sourceLabel =
     snapshot.source === "linear" ? "Live Linear cache" : "Verified fallback";
   const percentage = snapshot.overall.completion.toFixed(1);
+  const cutoverPercentage = snapshot.hostingCutover.overall.completion.toFixed(1);
 
   return (
     <>
       <header className="topbar">
         <div className="shell topbar-inner">
-          <a className="brand" href="#top">
-            <span className="brand-mark" aria-hidden="true" />
-            <span>Homebase migration</span>
-          </a>
+          <div className="topbar-primary">
+            <a className="brand" href="#top">
+              <span className="brand-mark" aria-hidden="true" />
+              <span>Homebase migration</span>
+            </a>
+            <div className="dashboard-tabs" role="tablist" aria-label="Dashboard view">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === "migration"}
+                onClick={() => changeTab("migration")}
+              >
+                Page migration
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={tab === "cutover"}
+                onClick={() => changeTab("cutover")}
+              >
+                Hosting cutover
+              </button>
+            </div>
+          </div>
           <nav className="nav" aria-label="Dashboard sections">
-            <a href="#progress">Progress</a>
-            <a href="#activity">Activity</a>
-            <a href="#pages">Completed pages</a>
-            <a href="#decisions">Decisions</a>
+            {tab === "migration" ? (
+              <>
+                <a href="#progress">Progress</a>
+                <a href="#activity">Activity</a>
+                <a href="#pages">Completed pages</a>
+                <a href="#decisions">Decisions</a>
+              </>
+            ) : (
+              <>
+                <a href="#cutover-progress">Progress</a>
+                <a href="#phase-one">Phase 1</a>
+                <a href="#cutover-tickets">All tickets</a>
+              </>
+            )}
             <span className="nav-user" title={`Signed in as ${user.email}`}>
               {user.name}
             </span>
@@ -232,11 +288,23 @@ export default function Dashboard({
                 <span className={`live-dot ${snapshot.source}`} />
                 {sourceLabel}
               </div>
-              <h1>Web migration progress and decision log</h1>
-              <p>
-                A live, linked view of URL parity, work in motion, recent
-                completions, implementation decisions, and unresolved questions.
-              </p>
+              {tab === "migration" ? (
+                <>
+                  <h1>Web migration progress and decision log</h1>
+                  <p>
+                    A live, linked view of URL parity, work in motion, recent
+                    completions, implementation decisions, and unresolved questions.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h1>Hosting cutover progress</h1>
+                  <p>
+                    A complete view of the Webflow-to-Vercel cutover queue, with
+                    the first production rollout cohort called out separately.
+                  </p>
+                </>
+              )}
               <div className="snapshot-meta">
                 <span>Updated {formatSnapshotTime(snapshot.generatedAt)} ET</span>
                 <button
@@ -253,9 +321,21 @@ export default function Dashboard({
               </div>
             </div>
             <ProgressRing
-              completion={snapshot.overall.completion}
-              done={snapshot.overall.done}
-              total={snapshot.overall.total}
+              completion={
+                tab === "migration"
+                  ? snapshot.overall.completion
+                  : snapshot.hostingCutover.overall.completion
+              }
+              done={
+                tab === "migration"
+                  ? snapshot.overall.done
+                  : snapshot.hostingCutover.overall.done
+              }
+              total={
+                tab === "migration"
+                  ? snapshot.overall.total
+                  : snapshot.hostingCutover.overall.rolloutTotal
+              }
             />
           </div>
         </section>
@@ -269,6 +349,8 @@ export default function Dashboard({
           </div>
         )}
 
+        {tab === "migration" ? (
+          <>
         <section id="progress" className="section">
           <div className="shell">
             <div className="section-head">
@@ -581,13 +663,231 @@ export default function Dashboard({
             />
           </div>
         </section>
+          </>
+        ) : (
+          <>
+            <section id="cutover-progress" className="section">
+              <div className="shell">
+                <div className="section-head">
+                  <div>
+                    <span className="section-kicker">Hosting portfolio</span>
+                    <h2>Webflow-to-Vercel cutover progress</h2>
+                    <p>
+                      Canceled routes remain visible in the inventory but are
+                      excluded from the rollout completion percentage.
+                    </p>
+                  </div>
+                  <div className="section-actions">
+                    <strong className="progress-summary">
+                      {cutoverPercentage}% complete
+                    </strong>
+                    <a
+                      className="section-link"
+                      href={snapshot.hostingCutover.projectUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      Open Hosting project ↗
+                    </a>
+                  </div>
+                </div>
+
+                <div className="decision-band cutover-band" aria-label="Hosting cutover summary">
+                  <div>
+                    <strong>{snapshot.hostingCutover.overall.total}</strong>
+                    <span>Total tracked</span>
+                  </div>
+                  <div>
+                    <strong>{snapshot.hostingCutover.overall.done}</strong>
+                    <span>Cut over</span>
+                  </div>
+                  <div>
+                    <strong>{snapshot.hostingCutover.overall.active}</strong>
+                    <span>Active or in review</span>
+                  </div>
+                  <div>
+                    <strong>{snapshot.hostingCutover.overall.backlog}</strong>
+                    <span>Queued</span>
+                  </div>
+                  <div>
+                    <strong>{snapshot.hostingCutover.overall.canceled}</strong>
+                    <span>Canceled</span>
+                  </div>
+                </div>
+
+                <div className="pillar-list" aria-label="Progress by hosting milestone">
+                  {snapshot.hostingCutover.milestones.map((milestone) => {
+                    const rolloutTotal = milestone.total - milestone.canceled;
+                    const completion = rolloutTotal
+                      ? (milestone.done / rolloutTotal) * 100
+                      : 0;
+                    return (
+                      <div className="pillar-row cutover-milestone" key={milestone.id}>
+                        <div className="pillar-name">
+                          <strong>{milestone.name}</strong>
+                          <span>
+                            {milestone.active
+                              ? `${milestone.active} currently active`
+                              : `${milestone.backlog} queued`}
+                          </span>
+                        </div>
+                        <div className="bar-block">
+                          <div className="bar-track" aria-hidden="true">
+                            <span style={{ transform: `scaleX(${completion / 100})` }} />
+                          </div>
+                          <span>{Math.round(completion)}%</span>
+                        </div>
+                        <div className="pillar-count">
+                          <strong>{milestone.done}</strong>
+                          <span>of {rolloutTotal}</span>
+                        </div>
+                        <span className="external" aria-hidden="true" />
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+
+            <section id="phase-one" className="section section-tinted">
+              <div className="shell">
+                <div className="section-head">
+                  <div>
+                    <span className="section-kicker">First rollout cohort</span>
+                    <h2>Phase 1</h2>
+                    <p>
+                      The complete first set of routes planned for production
+                      cutover through the reverse proxy.
+                    </p>
+                  </div>
+                  <span className="result-count">
+                    {snapshot.hostingCutover.phaseOne.filter(
+                      (ticket) => ticket.status === "done",
+                    ).length} of {snapshot.hostingCutover.phaseOne.length} complete
+                  </span>
+                </div>
+
+                <div className="phase-one-list">
+                  {snapshot.hostingCutover.phaseOne.map((ticket) => (
+                    <a
+                      className="phase-one-row"
+                      href={ticket.ticketUrl}
+                      key={ticket.ticket}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <StatusBadge status={ticket.status} label={ticket.stateName} />
+                      <code>{ticket.path ?? ticket.title}</code>
+                      <span>{ticket.milestone}</span>
+                      <strong>{ticket.ticket}</strong>
+                      <span className="external" aria-hidden="true">↗</span>
+                    </a>
+                  ))}
+                </div>
+              </div>
+            </section>
+
+            <section id="cutover-tickets" className="section">
+              <div className="shell">
+                <div className="section-head">
+                  <div>
+                    <span className="section-kicker">Complete inventory</span>
+                    <h2>All Hosting cutover tickets</h2>
+                    <p>
+                      Every ticket in the Hosting Migration project, including
+                      canceled routes and cross-route implementation work.
+                    </p>
+                  </div>
+                  <span className="result-count">
+                    {filteredCutoverTickets.length} of {snapshot.hostingCutover.tickets.length}
+                  </span>
+                </div>
+
+                <div className="controls">
+                  <label className="search-label">
+                    <span className="sr-only">Search Hosting cutover tickets</span>
+                    <input
+                      type="search"
+                      value={search}
+                      onChange={(event) => setSearch(event.target.value)}
+                      placeholder="Search route, milestone, or ticket"
+                    />
+                  </label>
+                  <div className="filters" role="group" aria-label="Filter cutover tickets">
+                    {[
+                      ["all", "All"],
+                      ["phase-one", "Phase 1"],
+                      ["active", "Active"],
+                      ["backlog", "Backlog"],
+                      ["done", "Done"],
+                      ["canceled", "Canceled"],
+                    ].map(([value, label]) => (
+                      <button
+                        type="button"
+                        key={value}
+                        className="filter"
+                        aria-pressed={filter === value}
+                        onClick={() => setFilter(value)}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {filteredCutoverTickets.length ? (
+                  <div className="cutover-table">
+                    <div className="cutover-table-head" aria-hidden="true">
+                      <span>Route or workstream</span>
+                      <span>Milestone</span>
+                      <span>Status</span>
+                      <span>Linear</span>
+                    </div>
+                    {filteredCutoverTickets.map((ticket) => (
+                      <div className="cutover-row" key={ticket.ticket}>
+                        {ticket.path ? (
+                          <a
+                            className="route-link"
+                            href={`https://www.joinhomebase.com${ticket.path}`}
+                            target="_blank"
+                            rel="noreferrer"
+                          >
+                            <code>{ticket.path}</code>
+                            <span aria-hidden="true">↗</span>
+                          </a>
+                        ) : (
+                          <span className="cutover-work">{ticket.title}</span>
+                        )}
+                        <span className="page-pillar">{ticket.milestone}</span>
+                        <StatusBadge status={ticket.status} label={ticket.stateName} />
+                        <a
+                          className="ticket-link"
+                          href={ticket.ticketUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                        >
+                          {ticket.ticket}
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="empty-message">
+                    No Hosting cutover tickets match this filter.
+                  </p>
+                )}
+              </div>
+            </section>
+          </>
+        )}
       </main>
 
       <footer>
         <div className="shell footer-inner">
           <span>
-            “Done” reflects Linear workflow state; it does not imply production
-            cutover.
+            {tab === "migration"
+              ? "“Done” reflects Linear workflow state; it does not imply production cutover."
+              : "Hosting progress reflects the workflow state of tickets in the Linear cutover project."}
           </span>
           <span>Auto-checks every 60 seconds · Linear cache refreshes hourly</span>
         </div>
