@@ -1,7 +1,7 @@
 import { revalidateTag } from "next/cache";
 import { NextRequest, NextResponse } from "next/server";
 
-import { getSnapshot } from "@/lib/linear";
+import { refreshSnapshot } from "@/lib/linear";
 import { SNAPSHOT_TAG } from "@/lib/projects";
 
 export const runtime = "nodejs";
@@ -18,13 +18,19 @@ export async function POST(request: NextRequest) {
   }
 
   revalidateTag(SNAPSHOT_TAG, { expire: 0 });
-  const snapshot = await getSnapshot();
+  try {
+    const snapshot = await refreshSnapshot();
 
-  return NextResponse.json({
-    ok: true,
-    generatedAt: snapshot.generatedAt,
-    source: snapshot.source,
-    done: snapshot.overall.done,
-    total: snapshot.overall.total,
-  });
+    return NextResponse.json({
+      ok: true,
+      generatedAt: snapshot.generatedAt,
+      source: snapshot.source,
+      done: snapshot.overall.done,
+      total: snapshot.overall.total,
+    });
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "Unknown Linear API error";
+    return NextResponse.json({ ok: false, error: message }, { status: 502 });
+  }
 }

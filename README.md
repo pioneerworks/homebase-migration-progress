@@ -15,7 +15,8 @@ Blog CMS, Foundations/special cases, and Webflow Cloud pages.
 
 The dashboard is designed for Vercel Hobby during exploration. GitHub Actions
 invalidates the cached Linear snapshot hourly, while connected browsers check for
-a changed snapshot every 60 seconds.
+a changed snapshot every 60 seconds. Linear projects are fetched and paginated
+separately so each request stays below Linear's query-complexity limit.
 
 ## Data and security model
 
@@ -90,6 +91,8 @@ redirect URI if Okta sign-in must work on ephemeral preview domains.
 | `DASHBOARD_REFRESH_SECRET` | Same refresh secret configured in Vercel |
 
 The scheduled workflow can also be run manually from the Actions tab.
+The refresh endpoint returns an error when Linear cannot produce live data, so a
+successful workflow run confirms a live snapshot rather than a fallback.
 
 ## What counts toward progress
 
