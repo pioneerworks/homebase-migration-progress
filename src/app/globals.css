@@ -129,7 +129,7 @@ button {
   color: var(--ink);
 }
 
-.dashboard-tabs button[aria-selected="true"] {
+.dashboard-tabs button[aria-pressed="true"] {
   background: var(--bg);
   color: var(--accent);
   box-shadow: 0 1px 3px oklch(0.24 0.04 305 / 0.1);
@@ -1216,6 +1216,37 @@ footer {
   }
 }
 
+@media (max-width: 745px) {
+  .cutover-table-head {
+    display: none;
+  }
+
+  .cutover-row {
+    grid-template-columns: minmax(0, 1fr) 84px;
+    gap: 8px 12px;
+    min-height: 72px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+
+  .cutover-row > .page-pillar {
+    grid-column: 1;
+    grid-row: 2;
+  }
+
+  .cutover-row > .status {
+    grid-column: 2;
+    grid-row: 1;
+    justify-self: end;
+  }
+
+  .cutover-row > .ticket-link {
+    grid-column: 2;
+    grid-row: 2;
+    text-align: right;
+  }
+}
+
 @media (max-width: 680px) {
   .shell {
     width: min(calc(100% - 28px), var(--content));
@@ -1373,10 +1404,6 @@ footer {
     display: none;
   }
 
-  .cutover-table-head {
-    display: none;
-  }
-
   .page-row {
     grid-template-columns: minmax(0, 1fr) 66px;
     gap: 12px;
@@ -1401,31 +1428,6 @@ footer {
 
   .phase-one-row > .external {
     display: none;
-  }
-
-  .cutover-row {
-    grid-template-columns: minmax(0, 1fr) 84px;
-    gap: 8px 12px;
-    min-height: 72px;
-    padding-top: 10px;
-    padding-bottom: 10px;
-  }
-
-  .cutover-row > .page-pillar {
-    grid-column: 1;
-    grid-row: 2;
-  }
-
-  .cutover-row > .status {
-    grid-column: 2;
-    grid-row: 1;
-    justify-self: end;
-  }
-
-  .cutover-row > .ticket-link {
-    grid-column: 2;
-    grid-row: 2;
-    text-align: right;
   }
 
   .issue-row {

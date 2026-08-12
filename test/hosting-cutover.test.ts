@@ -7,6 +7,7 @@ import {
 } from "../src/lib/linear";
 
 test("extracts simple and nested Hosting cutover routes", () => {
+  assert.equal(extractCutoverPathFromTitle("Hosting cutover: /"), "/");
   assert.equal(
     extractCutoverPathFromTitle("Hosting cutover: /payroll"),
     "/payroll",

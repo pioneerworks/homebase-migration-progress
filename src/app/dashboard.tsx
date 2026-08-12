@@ -37,10 +37,12 @@ function ProgressRing({
   completion,
   done,
   total,
+  unit = "URLs",
 }: {
   completion: number;
   done: number;
   total: number;
+  unit?: string;
 }) {
   const radius = 66;
   const circumference = 2 * Math.PI * radius;
@@ -49,7 +51,7 @@ function ProgressRing({
     <div
       className="progress-ring"
       role="img"
-      aria-label={`${completion.toFixed(1)} percent of tracked URLs are complete`}
+      aria-label={`${completion.toFixed(1)} percent of tracked ${unit.toLowerCase()} are complete`}
     >
       <svg viewBox="0 0 160 160" aria-hidden="true">
         <circle className="ring-track" cx="80" cy="80" r={radius} />
@@ -67,7 +69,7 @@ function ProgressRing({
       <div className="ring-copy">
         <strong>{Math.round(completion)}%</strong>
         <span>
-          {done} of {total} URLs
+          {done} of {total} {unit}
         </span>
       </div>
     </div>
@@ -236,19 +238,17 @@ export default function Dashboard({
               <span className="brand-mark" aria-hidden="true" />
               <span>Homebase migration</span>
             </a>
-            <div className="dashboard-tabs" role="tablist" aria-label="Dashboard view">
+            <div className="dashboard-tabs" aria-label="Dashboard view">
               <button
                 type="button"
-                role="tab"
-                aria-selected={tab === "migration"}
+                aria-pressed={tab === "migration"}
                 onClick={() => changeTab("migration")}
               >
                 Page migration
               </button>
               <button
                 type="button"
-                role="tab"
-                aria-selected={tab === "cutover"}
+                aria-pressed={tab === "cutover"}
                 onClick={() => changeTab("cutover")}
               >
                 Hosting cutover
@@ -336,6 +336,7 @@ export default function Dashboard({
                   ? snapshot.overall.total
                   : snapshot.hostingCutover.overall.rolloutTotal
               }
+              unit={tab === "migration" ? "URLs" : "tickets"}
             />
           </div>
         </section>
@@ -798,44 +799,61 @@ export default function Dashboard({
                       canceled routes and cross-route implementation work.
                     </p>
                   </div>
-                  <span className="result-count">
-                    {filteredCutoverTickets.length} of {snapshot.hostingCutover.tickets.length}
-                  </span>
+                  {snapshot.source === "linear" && (
+                    <span className="result-count">
+                      {filteredCutoverTickets.length} of{" "}
+                      {snapshot.hostingCutover.tickets.length}
+                    </span>
+                  )}
                 </div>
 
-                <div className="controls">
-                  <label className="search-label">
-                    <span className="sr-only">Search Hosting cutover tickets</span>
-                    <input
-                      type="search"
-                      value={search}
-                      onChange={(event) => setSearch(event.target.value)}
-                      placeholder="Search route, milestone, or ticket"
-                    />
-                  </label>
-                  <div className="filters" role="group" aria-label="Filter cutover tickets">
-                    {[
-                      ["all", "All"],
-                      ["phase-one", "Phase 1"],
-                      ["active", "Active"],
-                      ["backlog", "Backlog"],
-                      ["done", "Done"],
-                      ["canceled", "Canceled"],
-                    ].map(([value, label]) => (
-                      <button
-                        type="button"
-                        key={value}
-                        className="filter"
-                        aria-pressed={filter === value}
-                        onClick={() => setFilter(value)}
-                      >
-                        {label}
-                      </button>
-                    ))}
+                {snapshot.source === "linear" && (
+                  <div className="controls">
+                    <label className="search-label">
+                      <span className="sr-only">
+                        Search Hosting cutover tickets
+                      </span>
+                      <input
+                        type="search"
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Search route, milestone, or ticket"
+                      />
+                    </label>
+                    <div
+                      className="filters"
+                      role="group"
+                      aria-label="Filter cutover tickets"
+                    >
+                      {[
+                        ["all", "All"],
+                        ["phase-one", "Phase 1"],
+                        ["active", "Active"],
+                        ["backlog", "Backlog"],
+                        ["done", "Done"],
+                        ["canceled", "Canceled"],
+                      ].map(([value, label]) => (
+                        <button
+                          type="button"
+                          key={value}
+                          className="filter"
+                          aria-pressed={filter === value}
+                          onClick={() => setFilter(value)}
+                        >
+                          {label}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
 
-                {filteredCutoverTickets.length ? (
+                {snapshot.source === "fallback" ? (
+                  <p className="empty-message">
+                    Live Linear is unavailable, so the full Hosting inventory is
+                    temporarily hidden. The verified summary and Phase 1 cohort
+                    remain available above.
+                  </p>
+                ) : filteredCutoverTickets.length ? (
                   <div className="cutover-table">
                     <div className="cutover-table-head" aria-hidden="true">
                       <span>Route or workstream</span>

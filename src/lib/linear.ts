@@ -190,7 +190,7 @@ const phaseOnePathOrder = [
 
 export function extractCutoverPathFromTitle(title: string): string | null {
   const match = title.match(
-    /^Hosting cutover:\s*(https?:\/\/\S+|\/\S+)(?:\s|$)/i,
+    /^Hosting cutover:\s*(https?:\/\/\S+|\/\S*)(?:\s|$)/i,
   );
   return match ? normalizePath(match[1]) : null;
 }

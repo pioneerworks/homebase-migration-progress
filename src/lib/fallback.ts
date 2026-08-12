@@ -75,7 +75,8 @@ const completedPages: Array<[string, string, string]> = [
   ["/payroll-talk-to-us", "AIA-932", "foundations"],
 ];
 
-const fallbackGeneratedAt = "2026-07-30T12:00:00.000Z";
+const fallbackGeneratedAt = "2026-08-12T14:24:55.000Z";
+const legacyFallbackTimestamp = "2026-07-30T12:00:00.000Z";
 
 function page(
   path: string,
@@ -94,8 +95,8 @@ function page(
     pillarName: project?.shortName ?? pillar,
     status,
     stateName: status === "done" ? "Done" : "Backlog",
-    updatedAt: fallbackGeneratedAt,
-    completedAt: status === "done" ? fallbackGeneratedAt : null,
+    updatedAt: legacyFallbackTimestamp,
+    completedAt: status === "done" ? legacyFallbackTimestamp : null,
     labels: [],
   };
 }
@@ -117,7 +118,7 @@ const phaseOneCutoverTickets: CutoverRecord[] = [
   ticketUrl: `https://linear.app/joinhomebase/issue/${ticket}`,
   status: "backlog",
   stateName: "Backlog",
-  updatedAt: fallbackGeneratedAt,
+  updatedAt: legacyFallbackTimestamp,
   completedAt: null,
   labels: ["Phase 1"],
   milestone: "Noindex, foundations & special cases",
@@ -336,6 +337,6 @@ export const fallbackSnapshot: Snapshot = {
       },
     ],
     phaseOne: phaseOneCutoverTickets,
-    tickets: phaseOneCutoverTickets,
+    tickets: [],
   },
 };
