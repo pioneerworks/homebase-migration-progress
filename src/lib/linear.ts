@@ -44,49 +44,46 @@ interface LinearProjectResult {
   };
 }
 
-interface LinearResponse {
+interface LinearSnapshotData {
+  product: LinearProjectResult;
+  seo: LinearProjectResult;
+  blog: LinearProjectResult;
+  foundations: LinearProjectResult;
+  webflowCloud: LinearProjectResult;
+  decisions: LinearProjectResult;
+  hosting: LinearProjectResult;
+}
+
+interface LinearProjectPageResponse {
   data?: {
-    product: LinearProjectResult | null;
-    seo: LinearProjectResult | null;
-    blog: LinearProjectResult | null;
-    foundations: LinearProjectResult | null;
-    webflowCloud: LinearProjectResult | null;
-    decisions: LinearProjectResult | null;
-    hosting: LinearProjectResult | null;
+    project: {
+      issues: {
+        nodes: LinearIssue[];
+        pageInfo: {
+          hasNextPage: boolean;
+          endCursor: string | null;
+        };
+      };
+    } | null;
   };
   errors?: Array<{ message: string }>;
 }
 
-const query = `
-  query MigrationSnapshot(
-    $product: String!
-    $seo: String!
-    $blog: String!
-    $foundations: String!
-    $webflowCloud: String!
-    $decisions: String!
-    $hosting: String!
+const projectIssuesQuery = `
+  query ProjectIssues(
+    $project: String!
+    $after: String
+    $includeArchived: Boolean!
   ) {
-    product: project(id: $product) {
-      issues(first: 250, includeArchived: true) { nodes { ...IssueFields } }
-    }
-    seo: project(id: $seo) {
-      issues(first: 250, includeArchived: true) { nodes { ...IssueFields } }
-    }
-    blog: project(id: $blog) {
-      issues(first: 250, includeArchived: true) { nodes { ...IssueFields } }
-    }
-    foundations: project(id: $foundations) {
-      issues(first: 250, includeArchived: true) { nodes { ...IssueFields } }
-    }
-    webflowCloud: project(id: $webflowCloud) {
-      issues(first: 250, includeArchived: true) { nodes { ...IssueFields } }
-    }
-    decisions: project(id: $decisions) {
-      issues(first: 250) { nodes { ...IssueFields } }
-    }
-    hosting: project(id: $hosting) {
-      issues(first: 250, includeArchived: true) { nodes { ...IssueFields } }
+    project(id: $project) {
+      issues(
+        first: 250
+        after: $after
+        includeArchived: $includeArchived
+      ) {
+        nodes { ...IssueFields }
+        pageInfo { hasNextPage endCursor }
+      }
     }
   }
 
@@ -104,15 +101,21 @@ const query = `
   }
 `;
 
-const variables = {
-  product: PILLAR_PROJECTS[0].id,
-  seo: PILLAR_PROJECTS[1].id,
-  blog: PILLAR_PROJECTS[2].id,
-  foundations: PILLAR_PROJECTS[3].id,
-  webflowCloud: PILLAR_PROJECTS[4].id,
-  decisions: DECISIONS_PROJECT.id,
-  hosting: HOSTING_PROJECT.id,
-};
+const snapshotProjects = [
+  { id: PILLAR_PROJECTS[0].id, includeArchived: true },
+  { id: PILLAR_PROJECTS[1].id, includeArchived: true },
+  { id: PILLAR_PROJECTS[2].id, includeArchived: true },
+  {
+    id: PILLAR_PROJECTS[3].id,
+    includeArchived: true,
+  },
+  {
+    id: PILLAR_PROJECTS[4].id,
+    includeArchived: true,
+  },
+  { id: DECISIONS_PROJECT.id, includeArchived: false },
+  { id: HOSTING_PROJECT.id, includeArchived: true },
+] as const;
 
 function normalizeStatus(issue: LinearIssue): PageStatus {
   const type = issue.state.type.toLowerCase();
@@ -357,7 +360,7 @@ function extractEstimatedBlogPosts(issue: LinearIssue | undefined): number | nul
   return match ? Number(match[1].replaceAll(",", "")) : null;
 }
 
-function buildSnapshot(data: NonNullable<LinearResponse["data"]>): Snapshot {
+function buildSnapshot(data: LinearSnapshotData): Snapshot {
   const projectResults: Record<string, LinearProjectResult | null> = {
     product: data.product,
     seo: data.seo,
@@ -519,30 +522,7 @@ export async function getSnapshot(): Promise<Snapshot> {
   if (!apiKey) return fallbackSnapshot;
 
   try {
-    const response = await fetch("https://api.linear.app/graphql", {
-      method: "POST",
-      headers: {
-        Authorization: apiKey,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ query, variables }),
-      next: {
-        revalidate: 60 * 60,
-        tags: [SNAPSHOT_TAG],
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error(`Linear returned HTTP ${response.status}`);
-    }
-    const payload = (await response.json()) as LinearResponse;
-    if (payload.errors?.length || !payload.data) {
-      throw new Error(
-        payload.errors?.map((error) => error.message).join("; ") ||
-          "Linear returned no data",
-      );
-    }
-    return buildSnapshot(payload.data);
+    return await getLiveSnapshot(apiKey);
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Unknown Linear API error";
@@ -551,4 +531,76 @@ export async function getSnapshot(): Promise<Snapshot> {
       warning: `Live Linear refresh failed: ${message}. Showing the last verified snapshot.`,
     };
   }
+}
+
+async function fetchProjectIssues(
+  apiKey: string,
+  project: string,
+  includeArchived: boolean,
+): Promise<LinearProjectResult> {
+  const nodes: LinearIssue[] = [];
+  let after: string | null = null;
+
+  do {
+    const response = await fetch("https://api.linear.app/graphql", {
+      method: "POST",
+      headers: {
+        Authorization: apiKey,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        query: projectIssuesQuery,
+        variables: { project, after, includeArchived },
+      }),
+      next: {
+        revalidate: 60 * 60,
+        tags: [SNAPSHOT_TAG],
+      },
+    });
+
+    const payload = (await response.json()) as LinearProjectPageResponse;
+    if (!response.ok || payload.errors?.length || !payload.data?.project) {
+      const detail = payload.errors?.map((error) => error.message).join("; ");
+      throw new Error(
+        detail ||
+          (response.ok
+            ? "Linear returned no project data"
+            : `Linear returned HTTP ${response.status}`),
+      );
+    }
+
+    nodes.push(...payload.data.project.issues.nodes);
+    const { hasNextPage, endCursor } = payload.data.project.issues.pageInfo;
+    after = hasNextPage ? endCursor : null;
+    if (hasNextPage && !after) {
+      throw new Error("Linear pagination did not return an end cursor");
+    }
+  } while (after);
+
+  return { issues: { nodes } };
+}
+
+async function getLiveSnapshot(apiKey: string): Promise<Snapshot> {
+  const [product, seo, blog, foundations, webflowCloud, decisions, hosting] =
+    await Promise.all(
+      snapshotProjects.map(({ id, includeArchived }) =>
+        fetchProjectIssues(apiKey, id, includeArchived),
+      ),
+    );
+
+  return buildSnapshot({
+    product,
+    seo,
+    blog,
+    foundations,
+    webflowCloud,
+    decisions,
+    hosting,
+  });
+}
+
+export async function refreshSnapshot(): Promise<Snapshot> {
+  const apiKey = process.env.LINEAR_API_KEY;
+  if (!apiKey) throw new Error("LINEAR_API_KEY is not configured");
+  return getLiveSnapshot(apiKey);
 }
