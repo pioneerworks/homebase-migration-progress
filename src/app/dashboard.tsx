@@ -4,7 +4,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import type {
   PageStatus,
+  RecapItem,
   Snapshot,
+  StakeholderRecap,
   TrackedIssue,
 } from "@/lib/types";
 import type { SessionUser } from "@/lib/auth-core";
@@ -119,6 +121,94 @@ function IssueList({
         </a>
       ))}
     </div>
+  );
+}
+
+function RecapList({ items }: { items: RecapItem[] }) {
+  return (
+    <ul>
+      {items.map((item) => (
+        <li key={`${item.text}-${item.sources.map((source) => source.id).join("-")}`}>
+          <span className="recap-item-text">{item.text}</span>
+          {item.sources.length > 0 && (
+            <span className="recap-sources" aria-label="Supporting Linear sources">
+              {item.sources.map((source) => (
+                <a
+                  className="recap-source"
+                  href={source.url}
+                  key={source.id}
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  {source.label ?? source.id} ↗
+                </a>
+              ))}
+            </span>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function StakeholderRecapSection({
+  recap,
+  view,
+}: {
+  recap: StakeholderRecap;
+  view: "migration" | "cutover";
+}) {
+  return (
+    <section id="recap" className="section stakeholder-recap">
+      <div className="shell">
+        <div className="section-head recap-head">
+          <div>
+            <span className="section-kicker">Stakeholder recap</span>
+            <h2>
+              {view === "migration"
+                ? "Page migration at a glance"
+                : "Hosting cutover at a glance"}
+            </h2>
+            <p>
+              A high-level view of progress, current focus, and the next steps
+              reflected in Linear.
+            </p>
+          </div>
+          <span className="recap-as-of">
+            Through {formatSnapshotTime(recap.asOf)} ET
+          </span>
+        </div>
+
+        <article className="recap-today">
+          <div className="recap-now" aria-hidden="true">
+            <span className="recap-label">Today</span>
+            <strong>Now</strong>
+          </div>
+          <div className="recap-today-copy">
+            <h3>Current-day update</h3>
+            <RecapList items={recap.today} />
+          </div>
+        </article>
+
+        <div className="recap-lower-grid">
+          <article className="recap-column recap-column-card">
+            <span className="recap-label">This week</span>
+            <span className="recap-rule" aria-hidden="true" />
+            <RecapList items={recap.week} />
+          </article>
+          <article className="recap-column recap-column-card">
+            <span className="recap-label">Working on now</span>
+            <span className="recap-rule" aria-hidden="true" />
+            <RecapList items={recap.workingOn} />
+          </article>
+          <article className="recap-column recap-column-next">
+            <span className="recap-label">Next steps</span>
+            <span className="recap-rule" aria-hidden="true" />
+            <RecapList items={recap.nextSteps} />
+          </article>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -260,6 +350,7 @@ export default function Dashboard({
           <nav className="nav" aria-label="Dashboard sections">
             {tab === "migration" ? (
               <>
+                <a href="#recap">Recap</a>
                 <a href="#progress">Progress</a>
                 <a href="#activity">Activity</a>
                 <a href="#pages">Completed pages</a>
@@ -267,6 +358,7 @@ export default function Dashboard({
               </>
             ) : (
               <>
+                <a href="#recap">Recap</a>
                 <a href="#cutover-progress">Progress</a>
                 <a href="#phase-one">Phase 1</a>
                 <a href="#cutover-tickets">All tickets</a>
@@ -352,6 +444,11 @@ export default function Dashboard({
             </div>
           </div>
         )}
+
+        <StakeholderRecapSection
+          recap={snapshot.stakeholderRecaps[tab]}
+          view={tab}
+        />
 
         {tab === "migration" ? (
           <>

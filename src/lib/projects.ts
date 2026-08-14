@@ -57,4 +57,12 @@ export const HOSTING_PROJECT: ProjectConfig = {
   url: "https://linear.app/joinhomebase/project/hosting-migration-webflow-to-vercel-9a1247e7f6e6/overview",
 };
 
+export const MIGRATION_PROJECT: ProjectConfig = {
+  id: "7710a614-5671-4ab8-807d-f6ee60d1f914",
+  key: "migration",
+  name: "Web Migration: Webflow → Nextjs + Vercel",
+  shortName: "Web migration",
+  url: "https://linear.app/joinhomebase/project/web-migration-webflow-nextjs-vercel-97fe44f106cb/overview",
+};
+
 export const SNAPSHOT_TAG = "linear-migration-snapshot";

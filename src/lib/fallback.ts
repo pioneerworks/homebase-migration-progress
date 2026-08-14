@@ -9,6 +9,7 @@ import type {
   PageRecord,
   PageStatus,
   PillarProgress,
+  RecapItem,
   Snapshot,
   TrackedIssue,
 } from "./types";
@@ -76,7 +77,7 @@ const completedPages: Array<[string, string, string]> = [
   ["/press", "AIA-2062", "webflow-cloud"],
 ];
 
-const fallbackGeneratedAt = "2026-08-12T14:24:55.000Z";
+const fallbackGeneratedAt = "2026-08-14T16:24:00.000Z";
 const legacyFallbackTimestamp = "2026-07-30T12:00:00.000Z";
 
 function page(
@@ -117,23 +118,25 @@ const phaseOneCutoverTickets: CutoverRecord[] = [
   title: `Hosting cutover: ${path}`,
   ticket,
   ticketUrl: `https://linear.app/joinhomebase/issue/${ticket}`,
-  status: "backlog",
-  stateName: "Backlog",
-  updatedAt: legacyFallbackTimestamp,
-  completedAt: null,
+  status: path === "/payroll" ? "done" : "backlog",
+  stateName: path === "/payroll" ? "Done" : "Backlog",
+  updatedAt:
+    path === "/payroll" ? "2026-08-13T20:08:20.908Z" : legacyFallbackTimestamp,
+  completedAt:
+    path === "/payroll" ? "2026-08-13T20:08:20.908Z" : null,
   labels: ["Phase 1"],
-  milestone: "Noindex, foundations & special cases",
+  milestone: "Phase 1",
 }));
 
 const pillarCounts: Record<
   string,
   Pick<PillarProgress, "done" | "active" | "backlog" | "canceled" | "total">
 > = {
-  product: { done: 59, active: 1, backlog: 0, canceled: 0, total: 60 },
+  product: { done: 59, active: 0, backlog: 0, canceled: 1, total: 60 },
   seo: { done: 31, active: 0, backlog: 0, canceled: 4, total: 35 },
   blog: { done: 1, active: 0, backlog: 0, canceled: 0, total: 1 },
   foundations: { done: 36, active: 0, backlog: 0, canceled: 20, total: 56 },
-  "webflow-cloud": { done: 2, active: 2, backlog: 17, canceled: 0, total: 21 },
+  "webflow-cloud": { done: 18, active: 3, backlog: 0, canceled: 0, total: 21 },
 };
 
 const pillars = PILLAR_PROJECTS.map((project) => ({
@@ -225,6 +228,20 @@ const questions = [
   ),
 ];
 
+const recap = (text: string, tickets: string[]): RecapItem => ({
+  text,
+  sources: tickets.map((id) => ({
+    id,
+    url: `https://linear.app/joinhomebase/issue/${id}`,
+  })),
+});
+
+const migrationProjectUpdate = {
+  id: "8b21d98e-423d-4ced-a76f-5727ebd8419c",
+  label: "Project update",
+  url: "https://linear.app/joinhomebase/project/web-migration-webflow-nextjs-vercel-97fe44f106cb/activity#project-update-8b21d98e",
+};
+
 export const fallbackSnapshot: Snapshot = {
   generatedAt: fallbackGeneratedAt,
   source: "fallback",
@@ -232,110 +249,170 @@ export const fallbackSnapshot: Snapshot = {
     "Showing the last verified snapshot. Add LINEAR_API_KEY in Vercel to enable the full live Linear inventory.",
   overall: {
     total: 165,
-    done: 127,
+    done: 143,
     active: 3,
-    backlog: 16,
+    backlog: 0,
     canceled: 19,
-    completion: 88.5,
-    recentlyCompleted: 29,
+    completion: 98.2,
+    recentlyCompleted: 33,
   },
   pillars,
   pages,
   recentActivity: pages.slice(0, 10),
   blogMigration: {
     estimatedPosts: 829,
-    status: "active",
-    stateName: "In Progress",
+    status: "done",
+    stateName: "Done",
     primaryIssue: tracked(
       "AIA-1446",
       "Bulk-import the remaining ~829 blog posts from Webflow",
-      "In Progress",
-      "The /blog hub is complete, but the remaining Webflow post corpus is still being imported and validated for content and SEO parity.",
+      "Done",
+      "The Webflow blog corpus was imported; remaining work focuses on cutover sitemap and redirect validation.",
     ),
     openFollowUps: [
       tracked(
-        "AIA-1447",
-        "Add e2e smoke coverage for /blog and /blog/[slug]",
-        "Backlog",
-        "Add blocking coverage for the blog index, representative posts, and internal links.",
+        "AIA-2050",
+        "Dynamic Webflow sitemap fetch for cutover",
+        "In Review",
+        "Keep un-migrated Webflow routes discoverable while the reverse proxy rolls out.",
       ),
       tracked(
-        "AIA-1448",
-        "Add drafts + preview to the Blog Homepage global",
-        "Backlog",
-        "Add draft, preview, and live-preview support before editors rely on the migrated blog.",
+        "AIA-2081",
+        "Import the full Webflow 301 export into the redirect map",
+        "In Review",
+        "Validate the production redirect set before expanding the hosting cutover.",
       ),
     ],
   },
   decisions: {
     projectUrl: DECISIONS_PROJECT.url,
     counts: {
-      total: 93,
-      done: 59,
-      active: 8,
-      backlog: 23,
+      total: 226,
+      done: 81,
+      active: 7,
+      backlog: 135,
       canceled: 3,
     },
     recent,
     questions,
   },
+  stakeholderRecaps: {
+    migration: {
+      asOf: "2026-08-14T16:24:00.000Z",
+      today: [
+        recap(
+          "The state labor law family is the active migration focus, including its route and SEO review.",
+          ["AIA-940", "AIA-2008"],
+        ),
+        recap(
+          "Content and SEO decisions are being resolved before the next routes enter cutover.",
+          ["AIA-1439", "AIA-1443"],
+        ),
+      ],
+      week: [
+        recap(
+          "The blog import and several Webflow Cloud routes were finished this week.",
+          ["AIA-1446", "AIA-2062", "AIA-2069"],
+        ),
+        {
+          text: "The latest project update says the first five routes will move in phases while Webflow stays as the backup.",
+          sources: [migrationProjectUpdate],
+        },
+      ],
+      workingOn: [
+        recap("The state labor law guide family and its content-quality review.", [
+          "AIA-940",
+          "AIA-2008",
+        ]),
+        recap("Host-aware sitemap coverage for routes not yet moved.", [
+          "AIA-2050",
+        ]),
+        recap("Importing and validating the production redirect set.", [
+          "AIA-2081",
+        ]),
+      ],
+      nextSteps: [
+        {
+          text: "Set up and check wf.joinhomebase.com as the Webflow backup.",
+          sources: [migrationProjectUpdate],
+        },
+        recap("Resolve the highest-priority content and SEO gaps affecting launch readiness.", [
+          "AIA-1443",
+          "AIA-1348",
+        ]),
+      ],
+    },
+    cutover: {
+      asOf: "2026-08-14T16:24:00.000Z",
+      today: [
+        recap(
+          "The first production route and public Vercel routing layer remain under observation after cutover.",
+          ["AIA-1602", "AIA-2193"],
+        ),
+      ],
+      week: [
+        recap(
+          "The public DNS move to Vercel and the first production route, /payroll, were completed this week.",
+          ["AIA-2193", "AIA-1602"],
+        ),
+        recap("One of five Phase 1 routes is complete.", [
+          "AIA-1602",
+          "AIA-1684",
+          "AIA-1543",
+          "AIA-2094",
+          "AIA-2093",
+        ]),
+      ],
+      workingOn: [
+        recap("Post-cutover checks for /payroll and the public Vercel routing layer.", [
+          "AIA-1602",
+          "AIA-2193",
+        ]),
+        recap("Redirect readiness for routes removed from migration scope.", [
+          "AIA-1880",
+        ]),
+      ],
+      nextSteps: [
+        recap(
+          "Prepare /payroll-lp, /food-beverage, /time-clock/cloud-based-time-tracking, and /homebase-vs-wheniwork for Phase 1.",
+          ["AIA-1684", "AIA-1543", "AIA-2094", "AIA-2093"],
+        ),
+        recap("Finish redirect import and validation before expanding the rollout.", [
+          "AIA-1880",
+        ]),
+      ],
+    },
+  },
   hostingCutover: {
     projectUrl: HOSTING_PROJECT.url,
     overall: {
-      total: 153,
-      rolloutTotal: 142,
-      done: 0,
+      total: 167,
+      rolloutTotal: 156,
+      done: 2,
       active: 0,
-      backlog: 142,
+      backlog: 154,
       canceled: 11,
-      completion: 0,
-      recentlyCompleted: 0,
+      completion: 1.3,
+      recentlyCompleted: 2,
     },
     milestones: [
       {
-        id: "3e8498a2-0858-4ff5-a677-500f06ce08e4",
-        name: "Product/content families",
-        done: 0,
+        id: "a8c3fa2f-4454-441b-87c1-a129cecaa60a",
+        name: "Phase 1",
+        done: 1,
         active: 0,
-        backlog: 59,
+        backlog: 4,
         canceled: 0,
-        total: 59,
+        total: 5,
       },
       {
-        id: "97755eb2-662f-4972-80fc-518a896f7e3b",
-        name: "Noindex, foundations & special cases",
-        done: 0,
+        id: "no-milestone",
+        name: "No milestone",
+        done: 1,
         active: 0,
-        backlog: 50,
-        canceled: 7,
-        total: 57,
-      },
-      {
-        id: "e3bbd700-2527-4118-9d5d-2d3b2bc5991d",
-        name: "Repeatable SEO, static & industry",
-        done: 0,
-        active: 0,
-        backlog: 31,
-        canceled: 4,
-        total: 35,
-      },
-      {
-        id: "164b7d76-5e3e-44cd-b4a5-eba3edf7534f",
-        name: "Blog CMS & hub",
-        done: 0,
-        active: 0,
-        backlog: 1,
-        canceled: 0,
-        total: 1,
-      },
-      {
-        id: "cross-project",
-        name: "Cross-project",
-        done: 0,
-        active: 0,
-        backlog: 1,
-        canceled: 0,
-        total: 1,
+        backlog: 150,
+        canceled: 11,
+        total: 162,
       },
     ],
     phaseOne: phaseOneCutoverTickets,

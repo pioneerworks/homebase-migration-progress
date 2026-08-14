@@ -2,6 +2,7 @@ import { fallbackSnapshot } from "./fallback";
 import {
   DECISIONS_PROJECT,
   HOSTING_PROJECT,
+  MIGRATION_PROJECT,
   MIGRATED_SITE_ORIGIN,
   PILLAR_PROJECTS,
   SNAPSHOT_TAG,
@@ -12,6 +13,8 @@ import type {
   PageRecord,
   PageStatus,
   PillarProgress,
+  RecapItem,
+  RecapSource,
   Snapshot,
   StatusCounts,
   TrackedIssue,
@@ -44,6 +47,19 @@ interface LinearProjectResult {
   };
 }
 
+interface LinearProjectUpdate {
+  id: string;
+  body: string;
+  health: string;
+  url: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+interface LinearProjectUpdatesResult {
+  updates: LinearProjectUpdate[];
+}
+
 interface LinearSnapshotData {
   product: LinearProjectResult;
   seo: LinearProjectResult;
@@ -52,6 +68,8 @@ interface LinearSnapshotData {
   webflowCloud: LinearProjectResult;
   decisions: LinearProjectResult;
   hosting: LinearProjectResult;
+  migrationUpdates: LinearProjectUpdatesResult;
+  hostingUpdates: LinearProjectUpdatesResult;
 }
 
 interface LinearProjectPageResponse {
@@ -63,6 +81,17 @@ interface LinearProjectPageResponse {
           hasNextPage: boolean;
           endCursor: string | null;
         };
+      };
+    } | null;
+  };
+  errors?: Array<{ message: string }>;
+}
+
+interface LinearProjectUpdatesResponse {
+  data?: {
+    project: {
+      projectUpdates: {
+        nodes: LinearProjectUpdate[];
       };
     } | null;
   };
@@ -98,6 +127,23 @@ const projectIssuesQuery = `
     state { name type }
     labels { nodes { name } }
     projectMilestone { id name }
+  }
+`;
+
+const projectUpdatesQuery = `
+  query ProjectUpdates($project: String!) {
+    project(id: $project) {
+      projectUpdates(first: 10) {
+        nodes {
+          id
+          body
+          health
+          url
+          createdAt
+          updatedAt
+        }
+      }
+    }
   }
 `;
 
@@ -230,7 +276,7 @@ function issueToCutover(issue: LinearIssue): CutoverRecord {
     updatedAt: issue.updatedAt,
     completedAt: issue.completedAt,
     labels: issue.labels.nodes.map((label) => label.name),
-    milestone: issue.projectMilestone?.name ?? "Cross-project",
+    milestone: issue.projectMilestone?.name ?? "No milestone",
   };
 }
 
@@ -281,14 +327,16 @@ function countCutoverMilestones(
 ): CutoverMilestoneProgress[] {
   const milestoneIds = new Map(
     issues.map((issue) => [
-      issue.projectMilestone?.name ?? "Cross-project",
-      issue.projectMilestone?.id ?? "cross-project",
+      issue.projectMilestone?.name ?? "No milestone",
+      issue.projectMilestone?.id ?? "no-milestone",
     ]),
   );
   const names = [...new Set(tickets.map((ticket) => ticket.milestone))].sort(
     (a, b) => {
-      if (a === "Cross-project") return 1;
-      if (b === "Cross-project") return -1;
+      if (a === "Phase 1") return -1;
+      if (b === "Phase 1") return 1;
+      if (a === "No milestone") return 1;
+      if (b === "No milestone") return -1;
       return a.localeCompare(b);
     },
   );
@@ -360,7 +408,577 @@ function extractEstimatedBlogPosts(issue: LinearIssue | undefined): number | nul
   return match ? Number(match[1].replaceAll(",", "")) : null;
 }
 
+function torontoDateKey(value: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(value));
+  const part = (type: "year" | "month" | "day") =>
+    parts.find((candidate) => candidate.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}`;
+}
+
+function currentWeekStartKey(value: string): string {
+  const currentKey = torontoDateKey(value);
+  const current = new Date(`${currentKey}T12:00:00Z`);
+  const daysSinceMonday = (current.getUTCDay() + 6) % 7;
+  current.setUTCDate(current.getUTCDate() - daysSinceMonday);
+  return current.toISOString().slice(0, 10);
+}
+
+function joinRecapItems(items: string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
+}
+
+function recapTitle(title: string): string {
+  return title
+    .replace(/^Hosting cutover:\s*/i, "")
+    .replace(/^(?:Port|Migrate|Build)\s+/i, "")
+    .replace(/\s+\(Webflow Cloud\).*$/i, "")
+    .replace(/\s+—.*$/, "")
+    .trim();
+}
+
+function recapItem(text: string, sources: RecapSource[]): RecapItem {
+  return { text, sources };
+}
+
+function issueSource(issue: LinearIssue): RecapSource {
+  return { id: issue.identifier, url: issue.url };
+}
+
+function pageSource(page: PageRecord): RecapSource {
+  return { id: page.ticket, url: page.ticketUrl };
+}
+
+function cutoverSource(ticket: CutoverRecord): RecapSource {
+  return { id: ticket.ticket, url: ticket.ticketUrl };
+}
+
+function projectUpdateSource(update: LinearProjectUpdate): RecapSource {
+  return {
+    id: update.id,
+    label: "Project update",
+    url: update.url,
+  };
+}
+
+function plainLanguage(value: string): string {
+  const replacements: Array<[RegExp, string]> = [
+    [/\bapproximately\b/gi, "about"],
+    [/\bcohort\b/gi, "group"],
+    [/\bcommence\b/gi, "start"],
+    [/\bconfiguration\b/gi, "setup"],
+    [/\bconfigure\b/gi, "set up"],
+    [/\bdependencies\b/gi, "needs"],
+    [/\bfacilitate\b/gi, "help"],
+    [/\bimplementation\b/gi, "work"],
+    [/\binfrastructure\b/gi, "hosting work"],
+    [/\bobjective\b/gi, "goal"],
+    [/\bparity\b/gi, "match"],
+    [/\bpreserve\b/gi, "keep"],
+    [/\bprioritize\b/gi, "focus on"],
+    [/\breconciliation\b/gi, "cleanup"],
+    [/\breconcile\b/gi, "check and fix"],
+    [/\bremediation\b/gi, "fix"],
+    [/\bsubsequent\b/gi, "next"],
+    [/\bsubstantial\b/gi, "large"],
+    [/\butilize\b/gi, "use"],
+    [/\bvalidation\b/gi, "checks"],
+    [/\bvalidate\b/gi, "check"],
+  ];
+  return replacements.reduce(
+    (text, [pattern, replacement]) => text.replace(pattern, replacement),
+    value,
+  );
+}
+
+function shortRecapText(value: string): string {
+  const text = plainLanguage(value).replace(/\s+/g, " ").trim();
+  if (text.length <= 150) return text;
+  const shortened = text.slice(0, 147).replace(/\s+\S*$/, "").trim();
+  return `${shortened}…`;
+}
+
+function cleanMarkdownLine(value: string): string {
+  return value
+    .replace(/^\s*(?:[-*]|\d+[.)])\s+/, "")
+    .replace(/\[([^\]]+)]\([^)]+\)/g, "$1")
+    .replace(/[`*_>#]/g, "")
+    .trim();
+}
+
+function projectUpdateLine(
+  update: LinearProjectUpdate,
+  sectionNames: string[],
+): string | null {
+  const lines = update.body.split("\n");
+  const sectionIndex = lines.findIndex((line) => {
+    const heading = cleanMarkdownLine(line).toLowerCase();
+    return sectionNames.some((name) => heading.includes(name));
+  });
+  if (sectionIndex === -1) return null;
+  for (const line of lines.slice(sectionIndex + 1)) {
+    if (/^\s*#{1,3}\s+/.test(line)) break;
+    if (!/^\s*(?:[-*]|\d+[.)])\s+/.test(line)) continue;
+    const cleaned = cleanMarkdownLine(line);
+    if (cleaned) return shortRecapText(cleaned);
+  }
+  return null;
+}
+
+function latestProjectUpdate(
+  updates: LinearProjectUpdate[],
+): LinearProjectUpdate | null {
+  return (
+    [...updates].sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    )[0] ?? null
+  );
+}
+
+function recapDetail(issue: LinearIssue): string | null {
+  if (!issue.description) return null;
+  const beforeChecklist = issue.description
+    .split(/\n#{1,3}\s+(?:Acceptance criteria|Checklist|Definition of done)/i)[0]
+    .trim();
+  if (!beforeChecklist) return null;
+  const summary = cleanSummary(beforeChecklist, issue.state.name);
+  if (summary.startsWith("Tracked in Linear")) return null;
+  return shortRecapText(summary);
+}
+
+function contextualIssueText(issue: LinearIssue): string {
+  const title = plainLanguage(recapTitle(issue.title));
+  const detail = recapDetail(issue);
+  return detail ? `${title}: ${detail}` : title;
+}
+
+function buildStakeholderRecaps({
+  generatedAt,
+  projectPages,
+  pillarIssues,
+  decisionIssues,
+  hostingIssues,
+  migrationProjectUpdates,
+  hostingProjectUpdates,
+  cutoverTickets,
+}: {
+  generatedAt: string;
+  projectPages: PageRecord[];
+  pillarIssues: LinearIssue[];
+  decisionIssues: LinearIssue[];
+  hostingIssues: LinearIssue[];
+  migrationProjectUpdates: LinearProjectUpdate[];
+  hostingProjectUpdates: LinearProjectUpdate[];
+  cutoverTickets: CutoverRecord[];
+}): Snapshot["stakeholderRecaps"] {
+  const todayKey = torontoDateKey(generatedAt);
+  const weekStartKey = currentWeekStartKey(generatedAt);
+  const isToday = (value: string | null) =>
+    Boolean(value && torontoDateKey(value) === todayKey);
+  const isThisWeek = (value: string | null) => {
+    if (!value) return false;
+    const key = torontoDateKey(value);
+    return key >= weekStartKey && key <= todayKey;
+  };
+  const migrationProjectUpdate = latestProjectUpdate(migrationProjectUpdates);
+  const hostingProjectUpdate = latestProjectUpdate(hostingProjectUpdates);
+
+  const todayResolvedPages = projectPages.filter(
+    (page) =>
+      (page.status === "done" || page.status === "canceled") &&
+      isToday(page.completedAt),
+  );
+  const weekResolvedPages = projectPages.filter(
+    (page) =>
+      (page.status === "done" || page.status === "canceled") &&
+      isThisWeek(page.completedAt),
+  );
+  const todayDecisionUpdates = decisionIssues.filter((issue) =>
+    isToday(issue.updatedAt),
+  );
+  const activePillarIssues = pillarIssues
+    .filter((issue) => normalizeStatus(issue) === "active")
+    .sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  const todayActiveIssues = activePillarIssues.filter((issue) =>
+    isToday(issue.updatedAt),
+  );
+  const latestPillarIssue = [...pillarIssues].sort(
+    (a, b) =>
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  )[0];
+  const newestPages = (pages: PageRecord[]) =>
+    [...pages].sort(
+      (a, b) =>
+        new Date(b.completedAt ?? b.updatedAt).getTime() -
+        new Date(a.completedAt ?? a.updatedAt).getTime(),
+    );
+  const openDecisionIssues = decisionIssues
+    .filter((issue) => {
+      const status = normalizeStatus(issue);
+      return status === "active" || status === "backlog";
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  const migrationToday: RecapItem[] = todayActiveIssues
+    .slice(0, 1)
+    .map((issue) =>
+      recapItem(`Current focus — ${contextualIssueText(issue)}`, [
+        issueSource(issue),
+      ]),
+    );
+  const migrationUpdateProgress = migrationProjectUpdate
+    ? projectUpdateLine(migrationProjectUpdate, ["progress so far", "progress"])
+    : null;
+  const migrationUpdateNext = migrationProjectUpdate
+    ? projectUpdateLine(migrationProjectUpdate, ["what’s next", "what's next", "next steps"])
+    : null;
+  if (
+    migrationProjectUpdate &&
+    migrationUpdateProgress &&
+    isToday(migrationProjectUpdate.createdAt)
+  ) {
+    migrationToday.unshift(
+      recapItem(`From the project update — ${migrationUpdateProgress}`, [
+        projectUpdateSource(migrationProjectUpdate),
+      ]),
+    );
+  }
+  const todayResolvedHighlights = newestPages(todayResolvedPages).slice(0, 3);
+  if (todayResolvedHighlights.length) {
+    migrationToday.push(
+      recapItem(
+        `Completed today: ${joinRecapItems(todayResolvedHighlights.map((page) => page.path))}.`,
+        todayResolvedHighlights.map(pageSource),
+      ),
+    );
+  }
+  const latestDecisionUpdate = [...todayDecisionUpdates].sort(
+    (a, b) =>
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  )[0];
+  if (latestDecisionUpdate && migrationToday.length < 2) {
+    migrationToday.push(
+      recapItem(
+        `Decision work — ${contextualIssueText(latestDecisionUpdate)}`,
+        [issueSource(latestDecisionUpdate)],
+      ),
+    );
+  }
+  if (!migrationToday.length && latestPillarIssue) {
+    migrationToday.push(
+      recapItem(
+        `Latest work — ${contextualIssueText(latestPillarIssue)}`,
+        [issueSource(latestPillarIssue)],
+      ),
+    );
+  }
+  migrationToday.splice(2);
+
+  const weekResolvedHighlights = newestPages(weekResolvedPages).slice(0, 3);
+  const webflowCloudHighlights = newestPages(
+    weekResolvedPages.filter((page) => page.pillar === "webflow-cloud"),
+  ).slice(0, 2);
+  const migrationWeek: RecapItem[] = weekResolvedHighlights.length
+    ? [
+        recapItem(
+          `Finished this week: ${joinRecapItems(weekResolvedHighlights.map((page) => page.path))}.`,
+          weekResolvedHighlights.map(pageSource),
+        ),
+      ]
+    : [];
+  if (
+    migrationProjectUpdate &&
+    migrationUpdateProgress &&
+    isThisWeek(migrationProjectUpdate.createdAt)
+  ) {
+    migrationWeek.unshift(
+      recapItem(`From the project update — ${migrationUpdateProgress}`, [
+        projectUpdateSource(migrationProjectUpdate),
+      ]),
+    );
+  }
+  if (webflowCloudHighlights.length) {
+    migrationWeek.push(
+      recapItem(
+        `Webflow Cloud progress included ${joinRecapItems(webflowCloudHighlights.map((page) => page.path))}.`,
+        webflowCloudHighlights.map(pageSource),
+      ),
+    );
+  }
+  if (!migrationWeek.length && latestPillarIssue) {
+    migrationWeek.push(
+      recapItem(
+        `Latest migration context — ${contextualIssueText(latestPillarIssue)}`,
+        [issueSource(latestPillarIssue)],
+      ),
+    );
+  }
+  migrationWeek.splice(2);
+
+  const weekCompletedCutover = cutoverTickets.filter(
+    (ticket) => ticket.status === "done" && isThisWeek(ticket.completedAt),
+  );
+  const todayCompletedCutover = cutoverTickets.filter(
+    (ticket) => ticket.status === "done" && isToday(ticket.completedAt),
+  );
+  const phaseOne = cutoverTickets.filter((ticket) =>
+    ticket.labels.includes("Phase 1"),
+  );
+  const phaseOneRemaining = phaseOne.filter(
+    (ticket) => ticket.status !== "done" && ticket.status !== "canceled",
+  );
+  const payrollCompleted = weekCompletedCutover.some(
+    (ticket) => ticket.path === "/payroll",
+  );
+  const hostingIssueById = new Map(
+    hostingIssues.map((issue) => [issue.identifier, issue]),
+  );
+  const todayHostingUpdates = hostingIssues
+    .filter((issue) => isToday(issue.updatedAt))
+    .sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  const activeHostingIssues = hostingIssues
+    .filter((issue) => normalizeStatus(issue) === "active")
+    .sort(
+      (a, b) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+    );
+  const latestHostingIssue = [...hostingIssues].sort(
+    (a, b) =>
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime(),
+  )[0];
+  const redirectWork = cutoverTickets.find(
+    (ticket) =>
+      ticket.status !== "done" &&
+      ticket.status !== "canceled" &&
+      ticket.title.toLowerCase().includes("redirect"),
+  );
+  const cutoverToday: RecapItem[] = todayHostingUpdates
+    .slice(0, 2)
+    .map((issue) =>
+      recapItem(contextualIssueText(issue), [issueSource(issue)]),
+    );
+  const hostingUpdateProgress = hostingProjectUpdate
+    ? projectUpdateLine(hostingProjectUpdate, ["progress so far", "progress"])
+    : null;
+  const hostingUpdateNext = hostingProjectUpdate
+    ? projectUpdateLine(hostingProjectUpdate, ["what’s next", "what's next", "next steps"])
+    : null;
+  if (
+    hostingProjectUpdate &&
+    hostingUpdateProgress &&
+    isToday(hostingProjectUpdate.createdAt)
+  ) {
+    cutoverToday.unshift(
+      recapItem(`From the project update — ${hostingUpdateProgress}`, [
+        projectUpdateSource(hostingProjectUpdate),
+      ]),
+    );
+  }
+  if (!cutoverToday.length && todayCompletedCutover[0]) {
+    const ticket = todayCompletedCutover[0];
+    const issue = hostingIssueById.get(ticket.ticket);
+    cutoverToday.push(
+      recapItem(
+        `Latest completed work under observation — ${issue ? contextualIssueText(issue) : recapTitle(ticket.title)}`,
+        [cutoverSource(ticket)],
+      ),
+    );
+  }
+  if (!cutoverToday.length && latestHostingIssue) {
+    cutoverToday.push(
+      recapItem(
+        `Latest work — ${contextualIssueText(latestHostingIssue)}`,
+        [issueSource(latestHostingIssue)],
+      ),
+    );
+  }
+  cutoverToday.splice(2);
+
+  const weekCompletedHighlights = [...weekCompletedCutover]
+    .sort(
+      (a, b) =>
+        new Date(b.completedAt ?? b.updatedAt).getTime() -
+        new Date(a.completedAt ?? a.updatedAt).getTime(),
+    )
+    .slice(0, 3);
+  const cutoverWeek: RecapItem[] = weekCompletedHighlights.length
+    ? [
+        recapItem(
+          `Completed this week: ${joinRecapItems(weekCompletedHighlights.map((ticket) => recapTitle(ticket.title)))}.`,
+          weekCompletedHighlights.map(cutoverSource),
+        ),
+      ]
+    : [];
+  if (
+    hostingProjectUpdate &&
+    hostingUpdateProgress &&
+    isThisWeek(hostingProjectUpdate.createdAt)
+  ) {
+    cutoverWeek.unshift(
+      recapItem(`From the project update — ${hostingUpdateProgress}`, [
+        projectUpdateSource(hostingProjectUpdate),
+      ]),
+    );
+  }
+  if (phaseOne.length) {
+    cutoverWeek.push(
+      recapItem(
+        `${phaseOne.filter((ticket) => ticket.status === "done").length} of ${phaseOne.length} Phase 1 routes are complete.`,
+        phaseOne.map(cutoverSource),
+      ),
+    );
+  }
+  cutoverWeek.splice(2);
+
+  const migrationWorkingOn = activePillarIssues.slice(0, 3).map((issue) =>
+    recapItem(contextualIssueText(issue), [issueSource(issue)]),
+  );
+  if (!migrationWorkingOn.length && openDecisionIssues[0]) {
+    migrationWorkingOn.push(
+      recapItem(contextualIssueText(openDecisionIssues[0]), [
+        issueSource(openDecisionIssues[0]),
+      ]),
+    );
+  }
+  const migrationNextSteps: RecapItem[] = [];
+  if (
+    migrationProjectUpdate &&
+    migrationUpdateNext &&
+    isThisWeek(migrationProjectUpdate.createdAt)
+  ) {
+    migrationNextSteps.push(
+      recapItem(`From the project update — ${migrationUpdateNext}`, [
+        projectUpdateSource(migrationProjectUpdate),
+      ]),
+    );
+  }
+  if (activePillarIssues[0]) {
+    migrationNextSteps.push(
+      recapItem(
+        `Close the active work on ${recapTitle(activePillarIssues[0].title)} before expanding the cutover set.`,
+        [issueSource(activePillarIssues[0])],
+      ),
+    );
+  }
+  if (openDecisionIssues[0]) {
+    migrationNextSteps.push(
+      recapItem(
+        `Next decision — ${contextualIssueText(openDecisionIssues[0])}`,
+        [issueSource(openDecisionIssues[0])],
+      ),
+    );
+  }
+  if (!migrationNextSteps.length && latestPillarIssue) {
+    migrationNextSteps.push(
+      recapItem(`Check next — ${contextualIssueText(latestPillarIssue)}`, [
+        issueSource(latestPillarIssue),
+      ]),
+    );
+  }
+  migrationNextSteps.splice(2);
+
+  const cutoverWorkingOn = activeHostingIssues.slice(0, 2).map((issue) =>
+    recapItem(contextualIssueText(issue), [issueSource(issue)]),
+  );
+  if (!cutoverWorkingOn.length && payrollCompleted) {
+    const payroll = weekCompletedCutover.find(
+      (ticket) => ticket.path === "/payroll",
+    );
+    if (payroll) {
+      cutoverWorkingOn.push(
+        recapItem(
+          "Monitoring /payroll and the public Vercel routing layer after cutover.",
+          [cutoverSource(payroll)],
+        ),
+      );
+    }
+  }
+  if (!cutoverWorkingOn.length && latestHostingIssue) {
+    cutoverWorkingOn.push(
+      recapItem(contextualIssueText(latestHostingIssue), [
+        issueSource(latestHostingIssue),
+      ]),
+    );
+  }
+  const cutoverNextSteps: RecapItem[] = [];
+  if (
+    hostingProjectUpdate &&
+    hostingUpdateNext &&
+    isThisWeek(hostingProjectUpdate.createdAt)
+  ) {
+    cutoverNextSteps.push(
+      recapItem(`From the project update — ${hostingUpdateNext}`, [
+        projectUpdateSource(hostingProjectUpdate),
+      ]),
+    );
+  }
+  if (phaseOneRemaining.length) {
+    cutoverNextSteps.push(
+      recapItem(
+        `Prepare the remaining Phase 1 routes: ${joinRecapItems(
+          phaseOneRemaining.map(
+            (ticket) => ticket.path ?? recapTitle(ticket.title),
+          ),
+        )}.`,
+        phaseOneRemaining.map(cutoverSource),
+      ),
+    );
+  }
+  if (redirectWork) {
+    const redirectIssue = hostingIssueById.get(redirectWork.ticket);
+    cutoverNextSteps.push(
+      recapItem(
+        redirectIssue
+          ? `Redirect work — ${contextualIssueText(redirectIssue)}`
+          : "Finish redirect import and validation before expanding the rollout.",
+        [cutoverSource(redirectWork)],
+      ),
+    );
+  }
+  if (!cutoverNextSteps.length && latestHostingIssue) {
+    cutoverNextSteps.push(
+      recapItem(`Check next — ${contextualIssueText(latestHostingIssue)}`, [
+        issueSource(latestHostingIssue),
+      ]),
+    );
+  }
+  cutoverNextSteps.splice(2);
+
+  return {
+    migration: {
+      asOf: generatedAt,
+      today: migrationToday,
+      week: migrationWeek,
+      workingOn: migrationWorkingOn,
+      nextSteps: migrationNextSteps,
+    },
+    cutover: {
+      asOf: generatedAt,
+      today: cutoverToday,
+      week: cutoverWeek,
+      workingOn: cutoverWorkingOn,
+      nextSteps: cutoverNextSteps,
+    },
+  };
+}
+
 function buildSnapshot(data: LinearSnapshotData): Snapshot {
+  const generatedAt = new Date().toISOString();
   const projectResults: Record<string, LinearProjectResult | null> = {
     product: data.product,
     seo: data.seo,
@@ -374,6 +992,13 @@ function buildSnapshot(data: LinearSnapshotData): Snapshot {
       .map((issue) => issueToPage(issue, project))
       .filter((page): page is PageRecord => Boolean(page));
   });
+  const pillarIssues = [
+    data.product,
+    data.seo,
+    data.blog,
+    data.foundations,
+    data.webflowCloud,
+  ].flatMap((result) => result?.issues.nodes ?? []);
 
   const pages = dedupePages(projectPages);
   const counts = countStatuses(pages);
@@ -467,7 +1092,7 @@ function buildSnapshot(data: LinearSnapshotData): Snapshot {
   ).length;
 
   return {
-    generatedAt: new Date().toISOString(),
+    generatedAt,
     source: "linear",
     overall: {
       ...counts,
@@ -502,6 +1127,16 @@ function buildSnapshot(data: LinearSnapshotData): Snapshot {
       recent,
       questions,
     },
+    stakeholderRecaps: buildStakeholderRecaps({
+      generatedAt,
+      projectPages,
+      pillarIssues,
+      decisionIssues,
+      hostingIssues,
+      migrationProjectUpdates: data.migrationUpdates.updates,
+      hostingProjectUpdates: data.hostingUpdates.updates,
+      cutoverTickets,
+    }),
     hostingCutover: {
       projectUrl: HOSTING_PROJECT.url,
       overall: {
@@ -580,13 +1215,52 @@ async function fetchProjectIssues(
   return { issues: { nodes } };
 }
 
+async function fetchProjectUpdates(
+  apiKey: string,
+  project: string,
+): Promise<LinearProjectUpdatesResult> {
+  const response = await fetch("https://api.linear.app/graphql", {
+    method: "POST",
+    headers: {
+      Authorization: apiKey,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      query: projectUpdatesQuery,
+      variables: { project },
+    }),
+    next: {
+      revalidate: 60 * 60,
+      tags: [SNAPSHOT_TAG],
+    },
+  });
+
+  const payload = (await response.json()) as LinearProjectUpdatesResponse;
+  if (!response.ok || payload.errors?.length || !payload.data?.project) {
+    const detail = payload.errors?.map((error) => error.message).join("; ");
+    throw new Error(
+      detail ||
+        (response.ok
+          ? "Linear returned no project update data"
+          : `Linear returned HTTP ${response.status}`),
+    );
+  }
+
+  return { updates: payload.data.project.projectUpdates.nodes };
+}
+
 async function getLiveSnapshot(apiKey: string): Promise<Snapshot> {
-  const [product, seo, blog, foundations, webflowCloud, decisions, hosting] =
-    await Promise.all(
+  const [projectResults, migrationUpdates, hostingUpdates] = await Promise.all([
+    Promise.all(
       snapshotProjects.map(({ id, includeArchived }) =>
         fetchProjectIssues(apiKey, id, includeArchived),
       ),
-    );
+    ),
+    fetchProjectUpdates(apiKey, MIGRATION_PROJECT.id),
+    fetchProjectUpdates(apiKey, HOSTING_PROJECT.id),
+  ]);
+  const [product, seo, blog, foundations, webflowCloud, decisions, hosting] =
+    projectResults;
 
   return buildSnapshot({
     product,
@@ -596,6 +1270,8 @@ async function getLiveSnapshot(apiKey: string): Promise<Snapshot> {
     webflowCloud,
     decisions,
     hosting,
+    migrationUpdates,
+    hostingUpdates,
   });
 }
 
