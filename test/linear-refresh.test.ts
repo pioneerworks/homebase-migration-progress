@@ -57,14 +57,16 @@ test("fetches each Linear project separately and follows pagination", async () =
     description: string,
     state: { name: string; type: string },
     labels: string[],
+    completedAt: string | null = null,
+    canceledAt: string | null = null,
   ) => ({
     identifier,
     title,
     description,
     url: `https://linear.app/joinhomebase/issue/${identifier}`,
     updatedAt: now,
-    completedAt: null,
-    canceledAt: null,
+    completedAt,
+    canceledAt,
     state,
     labels: { nodes: labels.map((name) => ({ name })) },
     projectMilestone: null,
@@ -82,8 +84,6 @@ test("fetches each Linear project separately and follows pagination", async () =
           {
             id: "project-update-test",
             body: [
-              "## Progress",
-              "- Approximately half of the setup is complete.",
               "## What's next",
               "1. Configure the Webflow backup host.",
             ].join("\n"),
@@ -104,9 +104,28 @@ test("fetches each Linear project separately and follows pagination", async () =
         issue(
           "AIA-TEST-PAGE",
           "Port /test-page",
-          "Bring the representative page to content and SEO parity.",
-          { name: "In Progress", type: "started" },
+          "Bring the page to a full content and SEO match.",
+          { name: "Done", type: "completed" },
           ["Migration page"],
+          now,
+        ),
+        issue(
+          "AIA-TEST-DUPLICATE",
+          "Port /test-page",
+          "Remove the duplicate route ticket.",
+          { name: "Duplicate", type: "canceled" },
+          ["Migration page"],
+          null,
+          now,
+        ),
+        issue(
+          "AIA-TEST-REMOVED",
+          "Port /removed-page",
+          "Remove this route from migration scope.",
+          { name: "Canceled", type: "canceled" },
+          ["Migration page"],
+          null,
+          now,
         ),
       ]);
     }
@@ -115,7 +134,7 @@ test("fetches each Linear project separately and follows pagination", async () =
         issue(
           "AIA-TEST-HOST",
           "Hosting cutover: /test-page",
-          "Move the verified route from Webflow hosting to Vercel.",
+          "Approximately half of the hosting configuration is ready.",
           { name: "Backlog", type: "backlog" },
           ["Phase 1"],
         ),
@@ -133,14 +152,34 @@ test("fetches each Linear project separately and follows pagination", async () =
   assert.ok(snapshot.stakeholderRecaps.cutover.nextSteps.length > 0);
   assert.equal(
     snapshot.stakeholderRecaps.migration.today[0].sources[0].id,
-    "project-update-test",
+    "AIA-TEST-PAGE",
+  );
+  assert.match(snapshot.stakeholderRecaps.migration.today[0].text, /completed/i);
+  assert.equal(
+    snapshot.stakeholderRecaps.migration.today[1].sources[0].id,
+    "AIA-TEST-REMOVED",
+  );
+  assert.match(
+    snapshot.stakeholderRecaps.migration.today[1].text,
+    /removed from migration scope/i,
   );
   assert.equal(
-    snapshot.stakeholderRecaps.migration.today[0].sources[0].label,
+    [
+      ...snapshot.stakeholderRecaps.migration.today,
+      ...snapshot.stakeholderRecaps.migration.week,
+      ...snapshot.stakeholderRecaps.migration.workingOn,
+      ...snapshot.stakeholderRecaps.migration.nextSteps,
+    ]
+      .flatMap((item) => item.sources)
+      .some((source) => source.id === "AIA-TEST-DUPLICATE"),
+    false,
+  );
+  assert.equal(
+    snapshot.stakeholderRecaps.migration.nextSteps[0].sources[0].label,
     "Project update",
   );
-  assert.match(snapshot.stakeholderRecaps.migration.today[0].text, /about/i);
   assert.match(snapshot.stakeholderRecaps.migration.nextSteps[0].text, /set up/i);
+  assert.match(snapshot.stakeholderRecaps.cutover.today[0].text, /about/i);
   assert.equal(
     snapshot.stakeholderRecaps.cutover.nextSteps[0].sources[0].id,
     "AIA-TEST-HOST",

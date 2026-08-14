@@ -590,15 +590,17 @@ function buildStakeholderRecaps({
   const migrationProjectUpdate = latestProjectUpdate(migrationProjectUpdates);
   const hostingProjectUpdate = latestProjectUpdate(hostingProjectUpdates);
 
-  const todayResolvedPages = projectPages.filter(
-    (page) =>
-      (page.status === "done" || page.status === "canceled") &&
-      isToday(page.completedAt),
+  const todayDonePages = projectPages.filter(
+    (page) => page.status === "done" && isToday(page.completedAt),
   );
-  const weekResolvedPages = projectPages.filter(
-    (page) =>
-      (page.status === "done" || page.status === "canceled") &&
-      isThisWeek(page.completedAt),
+  const todayRemovedPages = projectPages.filter(
+    (page) => page.status === "canceled" && isToday(page.completedAt),
+  );
+  const weekDonePages = projectPages.filter(
+    (page) => page.status === "done" && isThisWeek(page.completedAt),
+  );
+  const weekRemovedPages = projectPages.filter(
+    (page) => page.status === "canceled" && isThisWeek(page.completedAt),
   );
   const todayDecisionUpdates = decisionIssues.filter((issue) =>
     isToday(issue.updatedAt),
@@ -655,12 +657,21 @@ function buildStakeholderRecaps({
       ]),
     );
   }
-  const todayResolvedHighlights = newestPages(todayResolvedPages).slice(0, 3);
-  if (todayResolvedHighlights.length) {
+  const todayDoneHighlights = newestPages(todayDonePages).slice(0, 3);
+  if (todayDoneHighlights.length) {
     migrationToday.push(
       recapItem(
-        `Completed today: ${joinRecapItems(todayResolvedHighlights.map((page) => page.path))}.`,
-        todayResolvedHighlights.map(pageSource),
+        `Completed today: ${joinRecapItems(todayDoneHighlights.map((page) => page.path))}.`,
+        todayDoneHighlights.map(pageSource),
+      ),
+    );
+  }
+  const todayRemovedHighlights = newestPages(todayRemovedPages).slice(0, 3);
+  if (todayRemovedHighlights.length) {
+    migrationToday.push(
+      recapItem(
+        `Removed from migration scope today: ${joinRecapItems(todayRemovedHighlights.map((page) => page.path))}.`,
+        todayRemovedHighlights.map(pageSource),
       ),
     );
   }
@@ -686,18 +697,27 @@ function buildStakeholderRecaps({
   }
   migrationToday.splice(2);
 
-  const weekResolvedHighlights = newestPages(weekResolvedPages).slice(0, 3);
+  const weekDoneHighlights = newestPages(weekDonePages).slice(0, 3);
+  const weekRemovedHighlights = newestPages(weekRemovedPages).slice(0, 3);
   const webflowCloudHighlights = newestPages(
-    weekResolvedPages.filter((page) => page.pillar === "webflow-cloud"),
+    weekDonePages.filter((page) => page.pillar === "webflow-cloud"),
   ).slice(0, 2);
-  const migrationWeek: RecapItem[] = weekResolvedHighlights.length
+  const migrationWeek: RecapItem[] = weekDoneHighlights.length
     ? [
         recapItem(
-          `Finished this week: ${joinRecapItems(weekResolvedHighlights.map((page) => page.path))}.`,
-          weekResolvedHighlights.map(pageSource),
+          `Finished this week: ${joinRecapItems(weekDoneHighlights.map((page) => page.path))}.`,
+          weekDoneHighlights.map(pageSource),
         ),
       ]
     : [];
+  if (weekRemovedHighlights.length) {
+    migrationWeek.push(
+      recapItem(
+        `Removed from migration scope this week: ${joinRecapItems(weekRemovedHighlights.map((page) => page.path))}.`,
+        weekRemovedHighlights.map(pageSource),
+      ),
+    );
+  }
   if (
     migrationProjectUpdate &&
     migrationUpdateProgress &&
@@ -1129,7 +1149,7 @@ function buildSnapshot(data: LinearSnapshotData): Snapshot {
     },
     stakeholderRecaps: buildStakeholderRecaps({
       generatedAt,
-      projectPages,
+      projectPages: pages,
       pillarIssues,
       decisionIssues,
       hostingIssues,
