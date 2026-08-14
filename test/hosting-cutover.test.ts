@@ -101,12 +101,12 @@ test("includes Webflow Cloud as a page-parity track", () => {
 test("fallback parity matches the verified five-track snapshot", () => {
   assert.deepEqual(fallbackSnapshot.overall, {
     total: 165,
-    done: 127,
+    done: 143,
     active: 3,
-    backlog: 16,
+    backlog: 0,
     canceled: 19,
-    completion: 88.5,
-    recentlyCompleted: 29,
+    completion: 98.2,
+    recentlyCompleted: 33,
   });
   assert.deepEqual(
     fallbackSnapshot.pages
@@ -120,5 +120,40 @@ test("fallback parity matches the verified five-track snapshot", () => {
       (page) => page.path === "/free-timesheets-smallbusiness-lp",
     ),
     false,
+  );
+  assert.match(
+    fallbackSnapshot.stakeholderRecaps.migration.today
+      .map((item) => item.text)
+      .join(" "),
+    /state labor law family/i,
+  );
+  assert.match(
+    fallbackSnapshot.stakeholderRecaps.cutover.week
+      .map((item) => item.text)
+      .join(" "),
+    /public DNS move to Vercel.*\/payroll/i,
+  );
+  assert.deepEqual(
+    fallbackSnapshot.stakeholderRecaps.cutover.week[0].sources.map(
+      (source) => source.id,
+    ),
+    ["AIA-2193", "AIA-1602"],
+  );
+  assert.equal(fallbackSnapshot.hostingCutover.phaseOne[0].status, "done");
+  assert.deepEqual(
+    fallbackSnapshot.hostingCutover.milestones.map((milestone) => ({
+      name: milestone.name,
+      total: milestone.total,
+    })),
+    [
+      { name: "Phase 1", total: 5 },
+      { name: "No milestone", total: 162 },
+    ],
+  );
+  assert.equal(
+    fallbackSnapshot.hostingCutover.phaseOne.every(
+      (ticket) => ticket.milestone === "Phase 1",
+    ),
+    true,
   );
 });

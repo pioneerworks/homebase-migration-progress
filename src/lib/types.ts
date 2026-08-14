@@ -80,6 +80,25 @@ export interface BlogMigration {
   openFollowUps: TrackedIssue[];
 }
 
+export interface RecapSource {
+  id: string;
+  label?: string;
+  url: string;
+}
+
+export interface RecapItem {
+  text: string;
+  sources: RecapSource[];
+}
+
+export interface StakeholderRecap {
+  asOf: string;
+  today: RecapItem[];
+  week: RecapItem[];
+  workingOn: RecapItem[];
+  nextSteps: RecapItem[];
+}
+
 export interface Snapshot {
   generatedAt: string;
   source: Source;
@@ -97,6 +116,10 @@ export interface Snapshot {
     counts: StatusCounts;
     recent: TrackedIssue[];
     questions: TrackedIssue[];
+  };
+  stakeholderRecaps: {
+    migration: StakeholderRecap;
+    cutover: StakeholderRecap;
   };
   hostingCutover: {
     projectUrl: string;

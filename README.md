@@ -4,6 +4,7 @@ An internal, read-only dashboard for the joinhomebase.com Webflow-to-Next.js
 migration. It converts Linear URL tickets and migration-decision issues into:
 
 - overall and per-pillar completion;
+- external-stakeholder recaps for the current Toronto day and week;
 - recent page activity and work in progress;
 - a searchable inventory of completed routes with live-page and Linear links;
 - recent decisions, learnings, and open questions.
@@ -113,6 +114,15 @@ has been cut over to production.
 The Hosting cutover view reads every ticket in the dedicated Hosting Migration
 project. Canceled tickets remain visible but are excluded from its completion
 percentage. The Phase 1 cohort is derived from the Linear `Phase 1` label.
+
+Both dashboard tabs open with a stakeholder recap generated from the same Linear
+snapshot as the detailed tracker. “Today” follows the Toronto calendar date and
+“This week” starts on Monday. Each recap also identifies current work and the
+next rollout steps without requiring stakeholders to interpret individual ticket
+states. Recap copy combines status timing with a short excerpt from the relevant
+ticket description. It also reads the latest weekly project update when one is
+available. Long or formal wording is shortened into plain language, and every
+statement links back to its supporting Linear ticket or project update.
 
 The Blog pillar is an explicit exception: `/blog` is one URL ticket, while the
 article corpus is tracked separately. The dashboard surfaces the active bulk-import
