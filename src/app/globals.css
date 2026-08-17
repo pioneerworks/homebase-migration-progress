@@ -536,31 +536,11 @@ button {
 }
 
 .recap-today {
-  display: grid;
-  grid-template-columns: 290px minmax(0, 1fr);
-  gap: 48px;
   min-height: 240px;
   padding: 48px 56px;
   border-radius: 24px;
   background: var(--recap-deep);
   color: white;
-}
-
-.recap-now {
-  display: flex;
-  min-width: 0;
-  flex-direction: column;
-  justify-content: center;
-}
-
-.recap-now strong {
-  display: block;
-  margin-top: 6px;
-  color: color-mix(in srgb, var(--progress) 38%, transparent);
-  font-size: clamp(72px, 9vw, 116px);
-  font-weight: 740;
-  line-height: 0.9;
-  letter-spacing: -0.075em;
 }
 
 .recap-label {
@@ -571,16 +551,16 @@ button {
   text-transform: uppercase;
 }
 
-.recap-now .recap-label {
+.recap-today .recap-label {
   color: var(--recap-lilac);
 }
 
 .recap-today-copy {
-  align-self: center;
+  max-width: 960px;
 }
 
 .recap-today-copy h3 {
-  margin: 0;
+  margin: 10px 0 0;
   font-size: clamp(24px, 2.4vw, 34px);
   letter-spacing: -0.035em;
 }
@@ -1336,8 +1316,6 @@ footer {
 
 @media (max-width: 900px) {
   .recap-today {
-    grid-template-columns: 190px minmax(0, 1fr);
-    gap: 32px;
     padding: 40px;
   }
 
@@ -1447,19 +1425,9 @@ footer {
   }
 
   .recap-today {
-    grid-template-columns: 1fr;
-    gap: 22px;
     min-height: 0;
     padding: 30px 24px;
     border-radius: 18px;
-  }
-
-  .recap-now {
-    justify-content: flex-start;
-  }
-
-  .recap-now strong {
-    display: none;
   }
 
   .recap-lower-grid {
