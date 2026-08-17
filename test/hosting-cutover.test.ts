@@ -127,6 +127,29 @@ test("fallback parity matches the verified five-track snapshot", () => {
       .join(" "),
     /state labor law family/i,
   );
+  const migrationRecap = fallbackSnapshot.stakeholderRecaps.migration;
+  const migrationRecapSources = [
+    ...migrationRecap.today,
+    ...migrationRecap.week,
+    ...migrationRecap.workingOn,
+    ...migrationRecap.nextSteps,
+  ].flatMap((item) => item.sources.map((source) => source.id));
+  assert.equal(
+    migrationRecapSources.some((source) =>
+      [
+        "AIA-1602",
+        "AIA-1684",
+        "AIA-1543",
+        "AIA-1880",
+        "AIA-2050",
+        "AIA-2081",
+        "AIA-2093",
+        "AIA-2094",
+        "AIA-2193",
+      ].includes(source),
+    ),
+    false,
+  );
   assert.match(
     fallbackSnapshot.stakeholderRecaps.cutover.week
       .map((item) => item.text)
