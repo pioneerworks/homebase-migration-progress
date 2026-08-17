@@ -2,7 +2,6 @@ import { fallbackSnapshot } from "./fallback";
 import {
   DECISIONS_PROJECT,
   HOSTING_PROJECT,
-  MIGRATION_PROJECT,
   MIGRATED_SITE_ORIGIN,
   PILLAR_PROJECTS,
   SNAPSHOT_TAG,
@@ -68,7 +67,7 @@ interface LinearSnapshotData {
   webflowCloud: LinearProjectResult;
   decisions: LinearProjectResult;
   hosting: LinearProjectResult;
-  migrationUpdates: LinearProjectUpdatesResult;
+  pageUpdates: LinearProjectUpdatesResult;
   hostingUpdates: LinearProjectUpdatesResult;
 }
 
@@ -565,7 +564,7 @@ function buildStakeholderRecaps({
   pillarIssues,
   decisionIssues,
   hostingIssues,
-  migrationProjectUpdates,
+  pageProjectUpdates,
   hostingProjectUpdates,
   cutoverTickets,
 }: {
@@ -574,7 +573,7 @@ function buildStakeholderRecaps({
   pillarIssues: LinearIssue[];
   decisionIssues: LinearIssue[];
   hostingIssues: LinearIssue[];
-  migrationProjectUpdates: LinearProjectUpdate[];
+  pageProjectUpdates: LinearProjectUpdate[];
   hostingProjectUpdates: LinearProjectUpdate[];
   cutoverTickets: CutoverRecord[];
 }): Snapshot["stakeholderRecaps"] {
@@ -587,7 +586,7 @@ function buildStakeholderRecaps({
     const key = torontoDateKey(value);
     return key >= weekStartKey && key <= todayKey;
   };
-  const migrationProjectUpdate = latestProjectUpdate(migrationProjectUpdates);
+  const pageProjectUpdate = latestProjectUpdate(pageProjectUpdates);
   const hostingProjectUpdate = latestProjectUpdate(hostingProjectUpdates);
 
   const todayDonePages = projectPages.filter(
@@ -640,20 +639,20 @@ function buildStakeholderRecaps({
         issueSource(issue),
       ]),
     );
-  const migrationUpdateProgress = migrationProjectUpdate
-    ? projectUpdateLine(migrationProjectUpdate, ["progress so far", "progress"])
+  const pageUpdateProgress = pageProjectUpdate
+    ? projectUpdateLine(pageProjectUpdate, ["progress so far", "progress"])
     : null;
-  const migrationUpdateNext = migrationProjectUpdate
-    ? projectUpdateLine(migrationProjectUpdate, ["what’s next", "what's next", "next steps"])
+  const pageUpdateNext = pageProjectUpdate
+    ? projectUpdateLine(pageProjectUpdate, ["what’s next", "what's next", "next steps"])
     : null;
   if (
-    migrationProjectUpdate &&
-    migrationUpdateProgress &&
-    isToday(migrationProjectUpdate.createdAt)
+    pageProjectUpdate &&
+    pageUpdateProgress &&
+    isToday(pageProjectUpdate.createdAt)
   ) {
     migrationToday.unshift(
-      recapItem(`From the project update — ${migrationUpdateProgress}`, [
-        projectUpdateSource(migrationProjectUpdate),
+      recapItem(`From the project update — ${pageUpdateProgress}`, [
+        projectUpdateSource(pageProjectUpdate),
       ]),
     );
   }
@@ -719,13 +718,13 @@ function buildStakeholderRecaps({
     );
   }
   if (
-    migrationProjectUpdate &&
-    migrationUpdateProgress &&
-    isThisWeek(migrationProjectUpdate.createdAt)
+    pageProjectUpdate &&
+    pageUpdateProgress &&
+    isThisWeek(pageProjectUpdate.createdAt)
   ) {
     migrationWeek.unshift(
-      recapItem(`From the project update — ${migrationUpdateProgress}`, [
-        projectUpdateSource(migrationProjectUpdate),
+      recapItem(`From the project update — ${pageUpdateProgress}`, [
+        projectUpdateSource(pageProjectUpdate),
       ]),
     );
   }
@@ -877,13 +876,13 @@ function buildStakeholderRecaps({
   }
   const migrationNextSteps: RecapItem[] = [];
   if (
-    migrationProjectUpdate &&
-    migrationUpdateNext &&
-    isThisWeek(migrationProjectUpdate.createdAt)
+    pageProjectUpdate &&
+    pageUpdateNext &&
+    isThisWeek(pageProjectUpdate.createdAt)
   ) {
     migrationNextSteps.push(
-      recapItem(`From the project update — ${migrationUpdateNext}`, [
-        projectUpdateSource(migrationProjectUpdate),
+      recapItem(`From the project update — ${pageUpdateNext}`, [
+        projectUpdateSource(pageProjectUpdate),
       ]),
     );
   }
@@ -1153,7 +1152,7 @@ function buildSnapshot(data: LinearSnapshotData): Snapshot {
       pillarIssues,
       decisionIssues,
       hostingIssues,
-      migrationProjectUpdates: data.migrationUpdates.updates,
+      pageProjectUpdates: data.pageUpdates.updates,
       hostingProjectUpdates: data.hostingUpdates.updates,
       cutoverTickets,
     }),
@@ -1270,13 +1269,17 @@ async function fetchProjectUpdates(
 }
 
 async function getLiveSnapshot(apiKey: string): Promise<Snapshot> {
-  const [projectResults, migrationUpdates, hostingUpdates] = await Promise.all([
+  const [projectResults, pageUpdateResults, hostingUpdates] = await Promise.all([
     Promise.all(
       snapshotProjects.map(({ id, includeArchived }) =>
         fetchProjectIssues(apiKey, id, includeArchived),
       ),
     ),
-    fetchProjectUpdates(apiKey, MIGRATION_PROJECT.id),
+    Promise.all(
+      PILLAR_PROJECTS.map((project) =>
+        fetchProjectUpdates(apiKey, project.id),
+      ),
+    ),
     fetchProjectUpdates(apiKey, HOSTING_PROJECT.id),
   ]);
   const [product, seo, blog, foundations, webflowCloud, decisions, hosting] =
@@ -1290,7 +1293,9 @@ async function getLiveSnapshot(apiKey: string): Promise<Snapshot> {
     webflowCloud,
     decisions,
     hosting,
-    migrationUpdates,
+    pageUpdates: {
+      updates: pageUpdateResults.flatMap((result) => result.updates),
+    },
     hostingUpdates,
   });
 }

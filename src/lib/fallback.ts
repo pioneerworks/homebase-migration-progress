@@ -236,12 +236,6 @@ const recap = (text: string, tickets: string[]): RecapItem => ({
   })),
 });
 
-const migrationProjectUpdate = {
-  id: "8b21d98e-423d-4ced-a76f-5727ebd8419c",
-  label: "Project update",
-  url: "https://linear.app/joinhomebase/project/web-migration-webflow-nextjs-vercel-97fe44f106cb/activity#project-update-8b21d98e",
-};
-
 export const fallbackSnapshot: Snapshot = {
   generatedAt: fallbackGeneratedAt,
   source: "fallback",
@@ -305,7 +299,7 @@ export const fallbackSnapshot: Snapshot = {
           ["AIA-940", "AIA-2008"],
         ),
         recap(
-          "Content and SEO decisions are being resolved before the next routes enter cutover.",
+          "Content and SEO decisions are being resolved before more page work is completed.",
           ["AIA-1439", "AIA-1443"],
         ),
       ],
@@ -314,31 +308,31 @@ export const fallbackSnapshot: Snapshot = {
           "The blog import and several Webflow Cloud routes were finished this week.",
           ["AIA-1446", "AIA-2062", "AIA-2069"],
         ),
-        {
-          text: "The latest project update says the first five routes will move in phases while Webflow stays as the backup.",
-          sources: [migrationProjectUpdate],
-        },
+        recap(
+          "Content and SEO findings were documented for restaurant and homepage pages.",
+          ["AIA-1443", "AIA-1348"],
+        ),
       ],
       workingOn: [
         recap("The state labor law guide family and its content-quality review.", [
           "AIA-940",
           "AIA-2008",
         ]),
-        recap("Host-aware sitemap coverage for routes not yet moved.", [
-          "AIA-2050",
+        recap("Restaurant payroll FAQ content still needs a full page match.", [
+          "AIA-1443",
         ]),
-        recap("Importing and validating the production redirect set.", [
-          "AIA-2081",
+        recap("Homepage metadata still needs its primary keyword review.", [
+          "AIA-1348",
         ]),
       ],
       nextSteps: [
-        {
-          text: "Set up and check wf.joinhomebase.com as the Webflow backup.",
-          sources: [migrationProjectUpdate],
-        },
         recap("Resolve the highest-priority content and SEO gaps affecting launch readiness.", [
           "AIA-1443",
           "AIA-1348",
+        ]),
+        recap("Finish the open page layout and responsive type fixes.", [
+          "AIA-1455",
+          "AIA-1454",
         ]),
       ],
     },

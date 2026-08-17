@@ -163,7 +163,7 @@ function StakeholderRecapSection({
       <div className="shell">
         <div className="section-head recap-head">
           <div>
-            <span className="section-kicker">Stakeholder recap</span>
+            <span className="section-kicker">Recap</span>
             <h2>
               {view === "migration"
                 ? "Page migration at a glance"
