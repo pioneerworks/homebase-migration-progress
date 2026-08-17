@@ -5,6 +5,7 @@ import { refreshSnapshot } from "../src/lib/linear";
 import {
   DECISIONS_PROJECT,
   HOSTING_PROJECT,
+  MIGRATION_PROJECT,
   PILLAR_PROJECTS,
 } from "../src/lib/projects";
 
@@ -78,6 +79,29 @@ test("fetches each Linear project separately and follows pagination", async () =
     };
     requests.push(request.variables);
     if (request.query.includes("query ProjectUpdates")) {
+      if (request.variables.project === MIGRATION_PROJECT.id) {
+        return projectUpdatesResponse([
+          {
+            id: "main-project-update-test",
+            body: [
+              "### Page migration",
+              "#### This week",
+              "- Page migration program update.",
+              "#### Working on now",
+              "- Add the missing page routes.",
+              "### Hosting cutover",
+              "#### Today",
+              "- Three Phase 1 routes are live.",
+              "#### This week",
+              "- Phase 1 routing moved forward.",
+            ].join("\n"),
+            health: "onTrack",
+            url: "https://linear.app/joinhomebase/project/main/activity#main-project-update-test",
+            createdAt: now,
+            updatedAt: now,
+          },
+        ]);
+      }
       if (request.variables.project === PILLAR_PROJECTS[0].id) {
         return projectUpdatesResponse([
           {
@@ -193,7 +217,21 @@ test("fetches each Linear project separately and follows pagination", async () =
     "Project update",
   );
   assert.match(snapshot.stakeholderRecaps.migration.nextSteps[0].text, /page match/i);
-  assert.match(snapshot.stakeholderRecaps.cutover.today[0].text, /about/i);
+  assert.match(snapshot.stakeholderRecaps.migration.week[0].text, /program update/i);
+  assert.match(
+    snapshot.stakeholderRecaps.migration.workingOn[0].text,
+    /missing page routes/i,
+  );
+  assert.equal(
+    snapshot.stakeholderRecaps.migration.week[0].sources[0].id,
+    "main-project-update-test",
+  );
+  assert.match(snapshot.stakeholderRecaps.cutover.today[0].text, /three phase 1/i);
+  assert.match(snapshot.stakeholderRecaps.cutover.week[0].text, /routing moved/i);
+  assert.equal(
+    snapshot.stakeholderRecaps.cutover.today[0].sources[0].id,
+    "main-project-update-test",
+  );
   assert.equal(
     snapshot.stakeholderRecaps.cutover.nextSteps[0].sources[0].id,
     "hosting-project-update-test",
@@ -220,7 +258,29 @@ test("fetches each Linear project separately and follows pagination", async () =
       .some((source) => source.id === "page-project-update-test"),
     false,
   );
-  assert.equal(requests.length, 14);
+  assert.equal(
+    [
+      ...snapshot.stakeholderRecaps.migration.today,
+      ...snapshot.stakeholderRecaps.migration.week,
+      ...snapshot.stakeholderRecaps.migration.workingOn,
+      ...snapshot.stakeholderRecaps.migration.nextSteps,
+    ]
+      .map((item) => item.text)
+      .some((text) => text.includes("Phase 1 routing")),
+    false,
+  );
+  assert.equal(
+    [
+      ...snapshot.stakeholderRecaps.cutover.today,
+      ...snapshot.stakeholderRecaps.cutover.week,
+      ...snapshot.stakeholderRecaps.cutover.workingOn,
+      ...snapshot.stakeholderRecaps.cutover.nextSteps,
+    ]
+      .map((item) => item.text)
+      .some((text) => text.includes("missing page routes")),
+    false,
+  );
+  assert.equal(requests.length, 15);
   assert.deepEqual(
     requests
       .filter((request) => request.after === null)
@@ -249,7 +309,11 @@ test("fetches each Linear project separately and follows pagination", async () =
       .filter((request) => request.after === undefined)
       .map((request) => request.project)
       .sort(),
-    [...PILLAR_PROJECTS.map((project) => project.id), HOSTING_PROJECT.id].sort(),
+    [
+      MIGRATION_PROJECT.id,
+      ...PILLAR_PROJECTS.map((project) => project.id),
+      HOSTING_PROJECT.id,
+    ].sort(),
   );
 });
 

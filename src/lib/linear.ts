@@ -2,6 +2,7 @@ import { fallbackSnapshot } from "./fallback";
 import {
   DECISIONS_PROJECT,
   HOSTING_PROJECT,
+  MIGRATION_PROJECT,
   MIGRATED_SITE_ORIGIN,
   PILLAR_PROJECTS,
   SNAPSHOT_TAG,
@@ -67,6 +68,7 @@ interface LinearSnapshotData {
   webflowCloud: LinearProjectResult;
   decisions: LinearProjectResult;
   hosting: LinearProjectResult;
+  mainUpdates: LinearProjectUpdatesResult;
   pageUpdates: LinearProjectUpdatesResult;
   hostingUpdates: LinearProjectUpdatesResult;
 }
@@ -530,6 +532,61 @@ function projectUpdateLine(
   return null;
 }
 
+function markdownHeading(
+  line: string,
+): { level: number; title: string } | null {
+  const match = line.match(/^\s*(#{1,6})\s+(.+?)\s*$/);
+  if (!match) return null;
+  return {
+    level: match[1].length,
+    title: cleanMarkdownLine(match[2]).toLowerCase(),
+  };
+}
+
+function structuredProjectUpdateItems(
+  update: LinearProjectUpdate,
+  sectionName: "page migration" | "hosting cutover",
+  subsectionName: "today" | "this week" | "working on now" | "next steps",
+  limit: number,
+): RecapItem[] {
+  const lines = update.body.split("\n");
+  const sectionIndex = lines.findIndex(
+    (line) => markdownHeading(line)?.title === sectionName,
+  );
+  if (sectionIndex === -1) return [];
+
+  const sectionLevel = markdownHeading(lines[sectionIndex])?.level ?? 0;
+  const sectionEnd = lines.findIndex((line, index) => {
+    if (index <= sectionIndex) return false;
+    const heading = markdownHeading(line);
+    return Boolean(heading && heading.level <= sectionLevel);
+  });
+  const scopedEnd = sectionEnd === -1 ? lines.length : sectionEnd;
+  const subsectionIndex = lines.findIndex((line, index) => {
+    if (index <= sectionIndex || index >= scopedEnd) return false;
+    return markdownHeading(line)?.title === subsectionName;
+  });
+  if (subsectionIndex === -1) return [];
+
+  const subsectionLevel = markdownHeading(lines[subsectionIndex])?.level ?? 0;
+  const subsectionEnd = lines.findIndex((line, index) => {
+    if (index <= subsectionIndex || index >= scopedEnd) return false;
+    const heading = markdownHeading(line);
+    return Boolean(heading && heading.level <= subsectionLevel);
+  });
+  const itemEnd = subsectionEnd === -1 ? scopedEnd : subsectionEnd;
+
+  return lines
+    .slice(subsectionIndex + 1, itemEnd)
+    .filter((line) => /^\s*(?:[-*]|\d+[.)])\s+/.test(line))
+    .map(cleanMarkdownLine)
+    .filter(Boolean)
+    .slice(0, limit)
+    .map((text) =>
+      recapItem(shortRecapText(text), [projectUpdateSource(update)]),
+    );
+}
+
 function latestProjectUpdate(
   updates: LinearProjectUpdate[],
 ): LinearProjectUpdate | null {
@@ -564,6 +621,7 @@ function buildStakeholderRecaps({
   pillarIssues,
   decisionIssues,
   hostingIssues,
+  mainProjectUpdates,
   pageProjectUpdates,
   hostingProjectUpdates,
   cutoverTickets,
@@ -573,6 +631,7 @@ function buildStakeholderRecaps({
   pillarIssues: LinearIssue[];
   decisionIssues: LinearIssue[];
   hostingIssues: LinearIssue[];
+  mainProjectUpdates: LinearProjectUpdate[];
   pageProjectUpdates: LinearProjectUpdate[];
   hostingProjectUpdates: LinearProjectUpdate[];
   cutoverTickets: CutoverRecord[];
@@ -586,6 +645,7 @@ function buildStakeholderRecaps({
     const key = torontoDateKey(value);
     return key >= weekStartKey && key <= todayKey;
   };
+  const mainProjectUpdate = latestProjectUpdate(mainProjectUpdates);
   const pageProjectUpdate = latestProjectUpdate(pageProjectUpdates);
   const hostingProjectUpdate = latestProjectUpdate(hostingProjectUpdates);
 
@@ -978,20 +1038,79 @@ function buildStakeholderRecaps({
   }
   cutoverNextSteps.splice(2);
 
+  const structuredRecap = (
+    sectionName: "page migration" | "hosting cutover",
+  ) => ({
+    today:
+      mainProjectUpdate && isToday(mainProjectUpdate.createdAt)
+        ? structuredProjectUpdateItems(
+            mainProjectUpdate,
+            sectionName,
+            "today",
+            2,
+          )
+        : [],
+    week:
+      mainProjectUpdate && isThisWeek(mainProjectUpdate.createdAt)
+        ? structuredProjectUpdateItems(
+            mainProjectUpdate,
+            sectionName,
+            "this week",
+            2,
+          )
+        : [],
+    workingOn:
+      mainProjectUpdate && isThisWeek(mainProjectUpdate.createdAt)
+        ? structuredProjectUpdateItems(
+            mainProjectUpdate,
+            sectionName,
+            "working on now",
+            3,
+          )
+        : [],
+    nextSteps:
+      mainProjectUpdate && isThisWeek(mainProjectUpdate.createdAt)
+        ? structuredProjectUpdateItems(
+            mainProjectUpdate,
+            sectionName,
+            "next steps",
+            2,
+          )
+        : [],
+  });
+  const pageStructuredRecap = structuredRecap("page migration");
+  const hostingStructuredRecap = structuredRecap("hosting cutover");
+
   return {
     migration: {
       asOf: generatedAt,
-      today: migrationToday,
-      week: migrationWeek,
-      workingOn: migrationWorkingOn,
-      nextSteps: migrationNextSteps,
+      today: pageStructuredRecap.today.length
+        ? pageStructuredRecap.today
+        : migrationToday,
+      week: pageStructuredRecap.week.length
+        ? pageStructuredRecap.week
+        : migrationWeek,
+      workingOn: pageStructuredRecap.workingOn.length
+        ? pageStructuredRecap.workingOn
+        : migrationWorkingOn,
+      nextSteps: pageStructuredRecap.nextSteps.length
+        ? pageStructuredRecap.nextSteps
+        : migrationNextSteps,
     },
     cutover: {
       asOf: generatedAt,
-      today: cutoverToday,
-      week: cutoverWeek,
-      workingOn: cutoverWorkingOn,
-      nextSteps: cutoverNextSteps,
+      today: hostingStructuredRecap.today.length
+        ? hostingStructuredRecap.today
+        : cutoverToday,
+      week: hostingStructuredRecap.week.length
+        ? hostingStructuredRecap.week
+        : cutoverWeek,
+      workingOn: hostingStructuredRecap.workingOn.length
+        ? hostingStructuredRecap.workingOn
+        : cutoverWorkingOn,
+      nextSteps: hostingStructuredRecap.nextSteps.length
+        ? hostingStructuredRecap.nextSteps
+        : cutoverNextSteps,
     },
   };
 }
@@ -1152,6 +1271,7 @@ function buildSnapshot(data: LinearSnapshotData): Snapshot {
       pillarIssues,
       decisionIssues,
       hostingIssues,
+      mainProjectUpdates: data.mainUpdates.updates,
       pageProjectUpdates: data.pageUpdates.updates,
       hostingProjectUpdates: data.hostingUpdates.updates,
       cutoverTickets,
@@ -1269,19 +1389,21 @@ async function fetchProjectUpdates(
 }
 
 async function getLiveSnapshot(apiKey: string): Promise<Snapshot> {
-  const [projectResults, pageUpdateResults, hostingUpdates] = await Promise.all([
-    Promise.all(
-      snapshotProjects.map(({ id, includeArchived }) =>
-        fetchProjectIssues(apiKey, id, includeArchived),
+  const [projectResults, mainUpdates, pageUpdateResults, hostingUpdates] =
+    await Promise.all([
+      Promise.all(
+        snapshotProjects.map(({ id, includeArchived }) =>
+          fetchProjectIssues(apiKey, id, includeArchived),
+        ),
       ),
-    ),
-    Promise.all(
-      PILLAR_PROJECTS.map((project) =>
-        fetchProjectUpdates(apiKey, project.id),
+      fetchProjectUpdates(apiKey, MIGRATION_PROJECT.id),
+      Promise.all(
+        PILLAR_PROJECTS.map((project) =>
+          fetchProjectUpdates(apiKey, project.id),
+        ),
       ),
-    ),
-    fetchProjectUpdates(apiKey, HOSTING_PROJECT.id),
-  ]);
+      fetchProjectUpdates(apiKey, HOSTING_PROJECT.id),
+    ]);
   const [product, seo, blog, foundations, webflowCloud, decisions, hosting] =
     projectResults;
 
@@ -1293,6 +1415,7 @@ async function getLiveSnapshot(apiKey: string): Promise<Snapshot> {
     webflowCloud,
     decisions,
     hosting,
+    mainUpdates,
     pageUpdates: {
       updates: pageUpdateResults.flatMap((result) => result.updates),
     },

@@ -118,7 +118,11 @@ percentage. The Phase 1 cohort is derived from the Linear `Phase 1` label.
 Both dashboard tabs open with a stakeholder recap generated from the same Linear
 snapshot as the detailed tracker. Page Migration only uses the five page-pillar
 projects and migration decisions. Hosting Cutover only uses the dedicated Hosting
-Migration project. “Today” follows the Toronto calendar date and
+Migration project. A main-project update can override either recap by including a
+matching `### Page migration` or `### Hosting cutover` section with `#### Today`,
+`#### This week`, `#### Working on now`, and `#### Next steps` bullet lists. Each
+tab reads only its matching section and falls back to its own ticket activity when
+a subsection is missing. “Today” follows the Toronto calendar date and
 “This week” starts on Monday. Each recap also identifies current work and the
 next rollout steps without requiring stakeholders to interpret individual ticket
 states. Recap copy combines status timing with a short excerpt from the relevant
