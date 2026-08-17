@@ -180,11 +180,8 @@ function StakeholderRecapSection({
         </div>
 
         <article className="recap-today">
-          <div className="recap-now" aria-hidden="true">
-            <span className="recap-label">Today</span>
-            <strong>Now</strong>
-          </div>
           <div className="recap-today-copy">
+            <span className="recap-label">Today</span>
             <h3>Current-day update</h3>
             <RecapList items={recap.today} />
           </div>
