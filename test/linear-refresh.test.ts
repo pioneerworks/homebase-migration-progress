@@ -5,7 +5,6 @@ import { refreshSnapshot } from "../src/lib/linear";
 import {
   DECISIONS_PROJECT,
   HOSTING_PROJECT,
-  MIGRATION_PROJECT,
   PILLAR_PROJECTS,
 } from "../src/lib/projects";
 
@@ -79,16 +78,31 @@ test("fetches each Linear project separately and follows pagination", async () =
     };
     requests.push(request.variables);
     if (request.query.includes("query ProjectUpdates")) {
-      if (request.variables.project === MIGRATION_PROJECT.id) {
+      if (request.variables.project === PILLAR_PROJECTS[0].id) {
         return projectUpdatesResponse([
           {
-            id: "project-update-test",
+            id: "page-project-update-test",
             body: [
               "## What's next",
-              "1. Configure the Webflow backup host.",
+              "1. Finish the page match checks.",
             ].join("\n"),
             health: "onTrack",
-            url: "https://linear.app/joinhomebase/project/test/activity#project-update-test",
+            url: "https://linear.app/joinhomebase/project/test/activity#page-project-update-test",
+            createdAt: now,
+            updatedAt: now,
+          },
+        ]);
+      }
+      if (request.variables.project === HOSTING_PROJECT.id) {
+        return projectUpdatesResponse([
+          {
+            id: "hosting-project-update-test",
+            body: [
+              "## What's next",
+              "1. Set up the Webflow backup host.",
+            ].join("\n"),
+            health: "onTrack",
+            url: "https://linear.app/joinhomebase/project/hosting/activity#hosting-project-update-test",
             createdAt: now,
             updatedAt: now,
           },
@@ -178,13 +192,35 @@ test("fetches each Linear project separately and follows pagination", async () =
     snapshot.stakeholderRecaps.migration.nextSteps[0].sources[0].label,
     "Project update",
   );
-  assert.match(snapshot.stakeholderRecaps.migration.nextSteps[0].text, /set up/i);
+  assert.match(snapshot.stakeholderRecaps.migration.nextSteps[0].text, /page match/i);
   assert.match(snapshot.stakeholderRecaps.cutover.today[0].text, /about/i);
   assert.equal(
     snapshot.stakeholderRecaps.cutover.nextSteps[0].sources[0].id,
-    "AIA-TEST-HOST",
+    "hosting-project-update-test",
   );
-  assert.equal(requests.length, 10);
+  assert.equal(
+    [
+      ...snapshot.stakeholderRecaps.migration.today,
+      ...snapshot.stakeholderRecaps.migration.week,
+      ...snapshot.stakeholderRecaps.migration.workingOn,
+      ...snapshot.stakeholderRecaps.migration.nextSteps,
+    ]
+      .flatMap((item) => item.sources)
+      .some((source) => source.id === "hosting-project-update-test"),
+    false,
+  );
+  assert.equal(
+    [
+      ...snapshot.stakeholderRecaps.cutover.today,
+      ...snapshot.stakeholderRecaps.cutover.week,
+      ...snapshot.stakeholderRecaps.cutover.workingOn,
+      ...snapshot.stakeholderRecaps.cutover.nextSteps,
+    ]
+      .flatMap((item) => item.sources)
+      .some((source) => source.id === "page-project-update-test"),
+    false,
+  );
+  assert.equal(requests.length, 14);
   assert.deepEqual(
     requests
       .filter((request) => request.after === null)
@@ -213,7 +249,7 @@ test("fetches each Linear project separately and follows pagination", async () =
       .filter((request) => request.after === undefined)
       .map((request) => request.project)
       .sort(),
-    [HOSTING_PROJECT.id, MIGRATION_PROJECT.id].sort(),
+    [...PILLAR_PROJECTS.map((project) => project.id), HOSTING_PROJECT.id].sort(),
   );
 });
 
