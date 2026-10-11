@@ -113,7 +113,7 @@ async function limited<T>(fn: () => Promise<T>): Promise<T> {
   } finally {
     const next = waiting.shift();
     if (next) next();
-    else active -= 1;
+    else active = Math.max(0, active - 1);
   }
 }
 
@@ -157,7 +157,9 @@ function newCache() {
         fetchArm(key.config, key.window, 1),
       ]);
       const results = { control, test };
-      lastGood.set(runKey(key), { at: key.now, results });
+      // a slow older load must not overwrite a newer result
+      const previous = lastGood.get(runKey(key));
+      if (!previous || previous.at <= key.now) lastGood.set(runKey(key), { at: key.now, results });
       return results;
     },
     { ttlMs: CACHE_TTL_MS, failureTtlMs: FAILURE_TTL_MS, keyOf },

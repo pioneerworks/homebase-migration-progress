@@ -237,7 +237,8 @@ export function toListItem(
     controlN: primaryRow?.controlUnits ?? null,
     testN: primaryRow?.testUnits ?? null,
     statsigTestN: primaryRow?.testUnits ?? null,
-    alpha: primaryRow?.adjustedAlpha ?? null,
+    // only a sign-up primary metric's alpha applies to the Amplitude sign-up test
+    alpha: isSignupMetric(primaryRow?.metricName) ? primaryRow?.adjustedAlpha ?? null : null,
     day,
     totalDays: e.duration ?? null,
     startDate: startMs != null ? isoDate(startMs) : null,
@@ -451,13 +452,17 @@ function wholePctMagnitude(lift: number): string {
   return `${Math.round(Math.abs(lift))}%`;
 }
 
+function isSignupMetric(name: string | null | undefined): boolean {
+  return /^(owner\s+)?signups?$/i.test((name ?? "").trim());
+}
+
 /**
  * Shorten a primary-metric name for the tagline reason: the team's Owner
  * Signups metric reads as "sign ups"; any other name keeps its own casing.
  */
 function metricWord(metricName: string | null): string {
   const name = (metricName ?? "").trim();
-  if (/^(owner\s+)?signups?$/i.test(name)) return "sign ups";
+  if (isSignupMetric(name)) return "sign ups";
   return name || "sign ups";
 }
 

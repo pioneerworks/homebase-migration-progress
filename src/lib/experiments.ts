@@ -34,6 +34,7 @@ import "server-only";
 import { after } from "next/server";
 import { cache } from "react";
 
+import { amplitudeConfig } from "./amplitude";
 import { getArmResults, lastArmResults } from "./experiment-amplitude";
 import {
   buildKpis,
@@ -81,6 +82,8 @@ const DETAIL_DAYS = 28;
  * Mutable for tests.
  */
 export const amplitudeBudget = { ms: 10_000, navMs: 1_500 };
+/** Statsig plus Amplitude must fit well inside the Experiments page's 30s maxDuration. */
+const PAGE_DEADLINE_MS = 25_000;
 
 /**
  * Keep a call the response no longer waits for running until it settles, so
@@ -157,11 +160,15 @@ export async function getExperimentsPage(
 ): Promise<ExperimentsPage | null> {
   const config = statsigConfig(env);
   if (!config) return null;
+  const startedAt = Date.now();
   const value = await pageValue(config.apiKey, now);
+  // a slow Statsig load leaves less time for Amplitude, so the page stays
+  // inside its 30s maxDuration and renders Statsig's numbers instead of a 504
+  const remaining = Math.max(0, Math.min(budgetMs, startedAt + PAGE_DEADLINE_MS - Date.now()));
 
   const items = await Promise.all(
     value.items.map(async (item) => {
-      const amp = await liveArmResults(item, env, now, budgetMs);
+      const amp = await liveArmResults(item, env, now, remaining);
       return amp ? withAmplitude(item, amp) : item;
     }),
   );
@@ -191,9 +198,12 @@ export async function getExperimentDetail(
   if (!config) return null;
   const { items } = await pageValue(config.apiKey, now);
   const item = items.find((candidate) => candidate.id === id);
-  const live = item?.status === "live";
-  // the traffic split is needed either way; don't make it wait on Amplitude
-  const splitLoad = live ? splitCache.get({ id, apiKey: config.apiKey, now }, now) : null;
+  // with Amplitude configured the split is likely needed; don't make it wait on
+  // Amplitude (without Amplitude, loadDetail fetches the exposures itself)
+  const splitLoad =
+    item?.status === "live" && amplitudeConfig(env)
+      ? splitCache.get({ id, apiKey: config.apiKey, now }, now)
+      : null;
   splitLoad?.catch(() => undefined);
   const amp = item ? await liveArmResults(item, env, now, amplitudeBudget.ms) : null;
   if (!amp) return detailCache.get({ id, apiKey: config.apiKey, now }, now);
@@ -201,7 +211,7 @@ export async function getExperimentDetail(
   const daily = amplitudeDaily(amp);
   let split: Split | null;
   try {
-    split = await splitLoad!;
+    split = splitLoad ? await splitLoad : null;
   } catch (error) {
     // the Amplitude series still stands without Statsig's traffic split
     console.log(

@@ -206,3 +206,22 @@ test("lastArmResults keeps a run's newest result for a day, and not across a res
   // a restarted experiment (new start date) never shows the old run
   assert.equal(lastArmResults({ ...window, start: "2026-10-08" }, ENV, NOW + 60_000), null);
 });
+
+test("a slow older load never overwrites a newer last good result", async () => {
+  let release: (() => void) | undefined;
+  let first = true;
+  globalThis.fetch = async () => {
+    if (first) {
+      first = false;
+      await new Promise<void>((resolve) => (release = resolve));
+      return Response.json(funnelBody(1, 0));
+    }
+    return Response.json(funnelBody(500, 9));
+  };
+  const day1 = { id: "exp_x", start: "2026-10-01", end: "2026-10-09" };
+  const slow = getArmResults(day1, ENV, NOW).catch(() => null);
+  await getArmResults({ ...day1, end: "2026-10-10" }, ENV, NOW + 60_000);
+  release!();
+  await slow;
+  assert.equal(lastArmResults(day1, ENV, NOW + 120_000)?.control.visitors, 500);
+});

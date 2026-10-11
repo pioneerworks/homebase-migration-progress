@@ -501,3 +501,10 @@ test("toCsv says where each row's results come from", () => {
   assert.match(csv.split("\n")[1], /"Amplitude \(consented visitors\)"/);
   assert.match(csv.split("\n")[2], /"Statsig"/);
 });
+
+test("toListItem only carries Statsig's alpha over when the primary metric is sign ups", () => {
+  const signups = toListItem(scheduling, pulse({ adjustedAlpha: 0.01 }), Date.UTC(2026, 9, 4));
+  assert.equal(signups.alpha, 0.01);
+  const other = toListItem(scheduling, pulse({ metricName: "1D1", adjustedAlpha: 0.01 }), Date.UTC(2026, 9, 4));
+  assert.equal(other.alpha, null);
+});

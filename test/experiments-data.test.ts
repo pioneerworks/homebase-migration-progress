@@ -934,7 +934,7 @@ async function withProcessEnv(fn: () => Promise<void>) {
   }
 }
 
-test("the sidebar nav gives up on a slow Amplitude after its short budget", async () => {
+test("the sidebar nav gives up on a slow Amplitude after its short budget", { timeout: 2_000 }, async () => {
   installFetch();
   standardRouter();
   const amplitude = holdAmplitude();
@@ -983,4 +983,25 @@ test("the sidebar nav uses the last good Amplitude result when a refresh is slow
     Object.assign(amplitudeBudget, saved);
     await amplitude.release();
   }
+});
+
+test("the detail panel keeps Statsig's daily series when an Amplitude arm has no visitors", async () => {
+  installFetch();
+  standardRouter({ cumulative: detailCumulative() });
+  withAmplitudeRoute({ "0": AMP_ARMS["0"], "1": { visitors: 0, signups: 0, daily: [] } });
+  const detail = await getExperimentDetail(SCHEDULING_ID, AMP_ENV, NOW);
+  assert.ok(detail);
+  assert.equal(detail.dailySource, "statsig");
+  assert.equal(detail.totals, undefined);
+});
+
+test("without Amplitude, the detail panel fetches Statsig's exposures once", async () => {
+  installFetch();
+  standardRouter({ cumulative: detailCumulative() });
+  // the page's 7-day visitors KPI makes the first exposures call; the detail adds one
+  await getExperimentsPage(ENV, NOW);
+  const exposureCalls = () => requests.filter((r) => r.url.endsWith("/cumulative_exposures")).length;
+  const beforeDetail = exposureCalls();
+  await getExperimentDetail(SCHEDULING_ID, ENV, NOW);
+  assert.equal(exposureCalls() - beforeDetail, 1);
 });

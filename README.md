@@ -155,8 +155,10 @@ Amplitude when `AMPLITUDE_API_KEY` and `AMPLITUDE_SECRET` are set
 `product_area` contains `mw_`, device not `Linux`, and the event property named
 after the experiment id (`0` control, `1` test, stamped by the marketing site's
 `hb-exp-<id>` cookie) → `Owner Account Created` within 7 days, from the
-experiment's start through today. Rates, lift, a two-proportion z-test
-(alpha 0.05), the sign-up KPI and the detail panel's daily series come from it;
+experiment's start through today (UTC, the Amplitude project's timezone).
+Rates, lift, a two-proportion z-test (at Statsig's adjusted alpha when the
+primary metric is Owner Signups, otherwise 0.05), the sign-up KPI and the
+detail panel's daily series come from it;
 the experiment list, schedule, traffic split (exposures and SRM) and 1D1 stay
 on Statsig. Amplitude only sees visitors who accept cookies (about half of
 Statsig's), equally in both arms, so its rates are comparable and its visitor
