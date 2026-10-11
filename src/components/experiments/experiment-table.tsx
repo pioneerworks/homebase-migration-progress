@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import ExperimentDetailPanel from "@/components/experiments/experiment-detail";
-import { formatLift, formatRate, significanceLabel } from "@/lib/experiments-derive";
+import { formatLift, formatRate, significanceLabel, sourceLabel } from "@/lib/experiments-derive";
 import type { ExperimentListItem, HubStatus } from "@/lib/experiments-types";
 
 /**
@@ -212,7 +212,12 @@ function RowFragment({
           {formatLift(item.lift)}
         </td>
         <td className={`exp-td exp-td-sig${sig.tone ? ` exp-sig-${sig.tone}` : ""}`}>{sig.text}</td>
-        <td className="exp-td exp-td-samples">{samples}</td>
+        <td
+          className="exp-td exp-td-samples"
+          title={samples === "—" ? undefined : sourceLabel(item.resultsSource)}
+        >
+          {samples}
+        </td>
         <td className="exp-td exp-td-progress">
           {item.status === "live" && item.day != null && item.totalDays != null ? (
             <>

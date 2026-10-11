@@ -10,14 +10,15 @@ import {
   YAxis,
 } from "recharts";
 
-import { formatRate } from "@/lib/experiments-derive";
-import type { DailyPoint } from "@/lib/experiments-types";
+import { formatRate, trafficLabel } from "@/lib/experiments-derive";
+import type { DailyPoint, ExperimentDetail, ResultsSource } from "@/lib/experiments-types";
 
 /**
  * Block 04 charts: two side-by-side recharts bar charts (exposures and owner
  * signups per day), two bars per day (control then test), plus the signup-rate
- * table underneath. Values come from the Statsig detail payload — nothing is
- * derived here beyond per-day rates and totals.
+ * table underneath. Values come from the detail payload (Amplitude visitors
+ * when live, otherwise Statsig exposures) — nothing is derived here beyond
+ * per-day rates and totals.
  */
 
 const ARM_COLORS: Record<"control" | "test", string> = {
@@ -165,17 +166,24 @@ function DailyBarChart({
   );
 }
 
-function RateTable({ daily }: { daily: DailyPoint[] }) {
+function RateTable({ daily, runTotals }: { daily: DailyPoint[]; runTotals?: ExperimentDetail["totals"] }) {
   const n = daily.length;
-  const totals = daily.reduce(
-    (acc, point) => ({
-      controlSignups: acc.controlSignups + point.signups.control,
-      testSignups: acc.testSignups + point.signups.test,
-      controlExposures: acc.controlExposures + point.exposures.control,
-      testExposures: acc.testExposures + point.exposures.test,
-    }),
-    { controlSignups: 0, testSignups: 0, controlExposures: 0, testExposures: 0 },
-  );
+  const totals = runTotals
+    ? {
+        controlSignups: runTotals.control.signups,
+        testSignups: runTotals.test.signups,
+        controlExposures: runTotals.control.visitors,
+        testExposures: runTotals.test.visitors,
+      }
+    : daily.reduce(
+        (acc, point) => ({
+          controlSignups: acc.controlSignups + point.signups.control,
+          testSignups: acc.testSignups + point.signups.test,
+          controlExposures: acc.controlExposures + point.exposures.control,
+          testExposures: acc.testExposures + point.exposures.test,
+        }),
+        { controlSignups: 0, testSignups: 0, controlExposures: 0, testExposures: 0 },
+      );
   const rate = (signups: number, exposures: number): string =>
     exposures > 0 ? formatRate((signups / exposures) * 100) : "—";
 
@@ -191,7 +199,7 @@ function RateTable({ daily }: { daily: DailyPoint[] }) {
               {dayLabel(point.date)}
             </th>
           ))}
-          <th scope="col">{n}-day</th>
+          <th scope="col">{runTotals ? "Whole run" : `${n}-day`}</th>
         </tr>
       </thead>
       <tbody>
@@ -226,14 +234,28 @@ function RateTable({ daily }: { daily: DailyPoint[] }) {
   );
 }
 
-export default function DailyCharts({ daily }: { daily: DailyPoint[] }) {
+export default function DailyCharts({
+  daily,
+  source = "statsig",
+  totals,
+}: {
+  daily: DailyPoint[];
+  source?: ResultsSource;
+  totals?: ExperimentDetail["totals"];
+}) {
   return (
     <div className="exp-d-daily">
       <div className="exp-d-charts">
-        <DailyBarChart title="Exposures / day" rows={toRows("exposures", daily)} daily={daily} showRate={false} />
-        <DailyBarChart title="Owner sign ups / day" rows={toRows("signups", daily)} daily={daily} showRate={true} />
+        <DailyBarChart title={`${trafficLabel(source)} / day`} rows={toRows("exposures", daily)} daily={daily} showRate={false} />
+        <DailyBarChart
+          // Amplitude counts a sign up on the day of the visit that led to it
+          title={source === "amplitude" ? "Owner sign ups by visit day" : "Owner sign ups / day"}
+          rows={toRows("signups", daily)}
+          daily={daily}
+          showRate={true}
+        />
       </div>
-      <RateTable daily={daily} />
+      <RateTable daily={daily} runTotals={totals} />
     </div>
   );
 }

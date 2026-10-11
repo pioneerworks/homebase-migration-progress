@@ -79,6 +79,7 @@ redirect URI if Okta sign-in must work on ephemeral preview domains.
 | --- | --- |
 | `LINEAR_API_KEY` | Read-only Linear personal API key |
 | `STATSIG_CONSOLE_API_KEY` | Read-only Statsig Console API key powering the overview Experiments section; omit to hide the section |
+| `AMPLITUDE_API_KEY`, `AMPLITUDE_SECRET` | Amplitude project API key + secret key (Cross-Platform project 677513). Power the Overview signup funnel and the Experiments tab's live sign-up results; omit to use the captured snapshot and Statsig's results |
 | `OKTA_ISSUER` | Okta authorization server, normally `https://joinhomebase.okta.com/oauth2/default` |
 | `OKTA_CLIENT_ID` | Client ID for the dashboard's Okta OIDC web application |
 | `OKTA_CLIENT_SECRET` | Client secret used only by the server-side token exchange |
@@ -146,6 +147,28 @@ bands when `STATSIG_CONSOLE_API_KEY` is configured. It lists experiments in
 conversion rates of binomial primary metrics (per-unit means otherwise), and the primary metric's percent change with significance
 verdict (winning / losing / no-signal / no-data), each linking to its Statsig
 console permalink.
+
+On the Experiments tab, Statsig's results only refresh once a day (its
+Databricks sync), so live experiments take their sign-up results from
+Amplitude when `AMPLITUDE_API_KEY` and `AMPLITUDE_SECRET` are set
+(`src/lib/experiment-amplitude.ts`). One funnel per arm: `Page Viewed` with
+`product_area` contains `mw_`, device not `Linux`, and the event property named
+after the experiment id (`0` control, `1` test, stamped by the marketing site's
+`hb-exp-<id>` cookie) → `Owner Account Created` within 7 days, from the
+experiment's start through today (UTC, the Amplitude project's timezone).
+Rates, lift, a two-proportion z-test (at Statsig's adjusted alpha when the
+primary metric is Owner Signups, otherwise 0.05), the sign-up KPI and the
+detail panel's daily series come from it;
+the experiment list, schedule, traffic split (exposures and SRM) and 1D1 stay
+on Statsig. Amplitude only sees visitors who accept cookies (about half of
+Statsig's), equally in both arms, so its rates are comparable and its visitor
+counts are not Statsig's exposures. Amplitude results are cached for 15
+minutes. An experiment shows Statsig's numbers when Amplitude fails, when it
+takes longer than 10 seconds with no result from the last day cached (1.5
+seconds for the Experiments sidebar counts, which every page load starts), or
+when Amplitude sees no visitors in one of
+its arms (a page that doesn't stamp the arm property). The daily sign-up chart
+counts each sign up on the day of the visit that led to it.
 
 Both dashboard tabs open with a stakeholder recap generated from the same Linear
 snapshot as the detailed tracker. Page Migration only uses the five page-pillar

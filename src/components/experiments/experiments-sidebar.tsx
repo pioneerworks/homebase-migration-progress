@@ -20,9 +20,9 @@ import type { ExperimentsNav, Surface, View } from "@/lib/experiments-types";
 
 /**
  * Sidebar shown while the app is on /experiments. The nav counts stream in as
- * a promise (built server-side from the same cached Statsig page as the tab
- * itself); badges render skeleton lines until it resolves, like the hub
- * sidebar's project labels. URLs follow the tab's contract:
+ * a promise (built server-side from the same page as the tab: Statsig plus
+ * the live Amplitude results); badges render skeleton lines until it
+ * resolves, like the hub sidebar's project labels. URLs follow the tab's contract:
  * view links keep the current surface, surface links keep the current view,
  * and live experiments deep-link into the All view with the row open.
  */

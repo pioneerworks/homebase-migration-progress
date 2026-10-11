@@ -21,8 +21,12 @@ import {
   taglineOf,
   toCsv,
   toListItem,
+  sourceLabel,
+  trafficLabel,
+  twoProportionPValue,
+  withAmplitude,
 } from "../src/lib/experiments-derive";
-import type { ExperimentListItem } from "../src/lib/experiments-types";
+import type { ArmResults, ExperimentListItem } from "../src/lib/experiments-types";
 import type { ExperimentPulseResultsDto, ExternalExperimentDto } from "../src/lib/statsig-types";
 
 function exp(overrides: Partial<ExternalExperimentDto> = {}): ExternalExperimentDto {
@@ -115,6 +119,8 @@ const base: ExperimentListItem = {
   verdict: "no-data",
   controlN: null,
   testN: null,
+  statsigTestN: null,
+  alpha: null,
   day: null,
   totalDays: null,
   startDate: null,
@@ -124,6 +130,7 @@ const base: ExperimentListItem = {
   armUrls: { control: null, test: null },
   armNames: { control: "control", test: "test" },
   results: [],
+  resultsSource: "statsig",
   tagline: { state: "too_early", text: "Too early to tell" },
   progressLabel: "Unscheduled",
 };
@@ -269,8 +276,8 @@ test("pickDecision picks first losing live experiment", () => {
 
 test("buildKpis computes the five cells", () => {
   const items = [
-    { ...base, status: "live" as const, surface: "landing_page" as const, verdict: "losing" as const, results: [{ label: "Sign ups", control: 42, test: 20, controlRate: 2.5, testRate: 1.16, lift: -53.6 }] },
-    { ...base, status: "live" as const, surface: "landing_page" as const, verdict: "no-signal" as const, results: [{ label: "Sign ups", control: 33, test: 38, controlRate: 2.79, testRate: 3.0, lift: 7.3 }] },
+    { ...base, status: "live" as const, surface: "landing_page" as const, verdict: "losing" as const, results: [{ label: "Sign ups", control: 42, test: 20, controlRate: 2.5, testRate: 1.16, lift: -53.6, source: "statsig" as const }] },
+    { ...base, status: "live" as const, surface: "landing_page" as const, verdict: "no-signal" as const, results: [{ label: "Sign ups", control: 33, test: 38, controlRate: 2.79, testRate: 3.0, lift: 7.3, source: "statsig" as const }] },
     { ...base, status: "queued" as const },
   ];
   const kpis = buildKpis(items, { visitors7d: { control: 2864, test: 2987 }, milestone: { progress: 19, targetDate: "2026-09-25" }, today: "2026-09-28" });
@@ -307,7 +314,7 @@ test("buildNav counts views and surfaces", () => {
 test("toCsv quotes fields and has one row per experiment", () => {
   const csv = toCsv([{ ...base, name: 'Has "quotes", commas', status: "live", lift: -3 }]);
   const lines = csv.trim().split("\n");
-  assert.equal(lines[0], "Experiment,Path,Status,Primary metric,Control rate,Test rate,Lift,Significance,Control n,Test n,Progress,Owner");
+  assert.equal(lines[0], "Experiment,Path,Status,Primary metric,Control rate,Test rate,Lift,Significance,Control n,Test n,Results source,Progress,Owner");
   assert.equal(lines.length, 2);
   assert.match(lines[1], /^"Has ""quotes"", commas",/);
 });
@@ -378,4 +385,126 @@ test("armUrls falls back to the joinhomebase path", () => {
       test: "https://www.joinhomebase.com/free-time-clock-app-lp?arm=t",
     },
   );
+});
+
+// ---------------------------------------------------------------------------
+// Amplitude overlay (live results instead of Statsig's daily sync)
+// ---------------------------------------------------------------------------
+
+function arms(control: [number, number], test: [number, number]): ArmResults {
+  return {
+    control: { visitors: control[0], signups: control[1], daily: [] },
+    test: { visitors: test[0], signups: test[1], daily: [] },
+  };
+}
+
+test("twoProportionPValue matches a two-sided z-test with pooled variance", () => {
+  // 200/10000 vs 260/10000 → z ≈ 2.83, p ≈ 0.0047
+  assert.equal(twoProportionPValue(200, 10000, 260, 10000)!.toFixed(4), "0.0047");
+  // identical rates → p = 1
+  assert.ok(Math.abs(twoProportionPValue(20, 1000, 20, 1000)! - 1) < 1e-6);
+  // no traffic or no conversions anywhere → no test
+  assert.equal(twoProportionPValue(0, 0, 5, 100), null);
+  assert.equal(twoProportionPValue(0, 100, 0, 100), null);
+});
+
+test("withAmplitude replaces rates, lift, verdict and sign ups, keeps Statsig's 1D1", () => {
+  const statsig = toListItem(scheduling, schedulingPulse, Date.UTC(2026, 9, 4, 12));
+  const item = withAmplitude(statsig, arms([10000, 200], [10000, 260]));
+  assert.equal(item.resultsSource, "amplitude");
+  assert.equal(item.controlRate, 2);
+  assert.equal(item.testRate, 2.6);
+  assert.equal(item.lift!.toFixed(1), "30.0");
+  assert.equal(item.pValue!.toFixed(4), "0.0047");
+  assert.equal(item.verdict, "winning");
+  assert.equal(item.controlN, 10000);
+  assert.equal(item.testN, 10000);
+  assert.deepEqual(item.tagline, { state: "ahead", text: "Variant is ahead", reason: "+30% sign ups" });
+  assert.deepEqual(
+    item.results.map((r) => [r.label, r.control, r.test, r.source]),
+    [
+      ["Sign ups", 200, 260, "amplitude"],
+      ["1D1s", 16, 19, "statsig"],
+    ],
+  );
+});
+
+test("withAmplitude calls a significant drop a loss and a noisy gap no signal", () => {
+  const statsig = toListItem(scheduling, schedulingPulse, Date.UTC(2026, 9, 4, 12));
+  assert.equal(withAmplitude(statsig, arms([10000, 260], [10000, 200])).verdict, "losing");
+  assert.equal(withAmplitude(statsig, arms([1000, 20], [1000, 24])).verdict, "no-signal");
+});
+
+test("withAmplitude leaves the Statsig item alone when an arm has no visitors", () => {
+  const statsig = toListItem(scheduling, schedulingPulse, Date.UTC(2026, 9, 4, 12));
+  assert.equal(withAmplitude(statsig, arms([0, 0], [0, 0])), statsig);
+  assert.equal(withAmplitude(statsig, arms([100, 2], [0, 0])), statsig);
+});
+
+test("toListItem marks Statsig as the results source", () => {
+  const item = toListItem(scheduling, schedulingPulse, Date.UTC(2026, 9, 4, 12));
+  assert.equal(item.resultsSource, "statsig");
+  assert.ok(item.results.every((r) => r.source === "statsig"));
+});
+
+test("withAmplitude uses Statsig's adjusted alpha when the pulse has one", () => {
+  const statsig = { ...toListItem(scheduling, schedulingPulse, Date.UTC(2026, 9, 4, 12)), alpha: 0.001 };
+  // p ≈ 0.0047: significant at 0.05, not at 0.001
+  assert.equal(withAmplitude(statsig, arms([10000, 200], [10000, 260])).verdict, "no-signal");
+});
+
+test("withAmplitude calls a win when control has no sign ups but test clearly does", () => {
+  const statsig = toListItem(scheduling, schedulingPulse, Date.UTC(2026, 9, 4, 12));
+  const item = withAmplitude(statsig, arms([5000, 0], [5000, 40]));
+  assert.equal(item.lift, null);
+  assert.equal(item.verdict, "winning");
+});
+
+test("pickDecision prices the daily cost on Statsig's full traffic, not Amplitude's consented visitors", () => {
+  const statsig = { ...toListItem(scheduling, schedulingPulse, Date.UTC(2026, 9, 4, 12)), statsigTestN: 20000, day: 10 };
+  const losing = withAmplitude(statsig, arms([10000, 260], [10000, 200]));
+  // (2.6% − 2.0%) × 20,000 / 10 days = 12 a day (Amplitude's 10,000 would say 6)
+  assert.match(pickDecision([losing])!.body, /roughly 12 owner sign ups a day/);
+});
+
+test("buildKpis says where the sign-up numbers come from", () => {
+  const amp = { ...base, status: "live" as const, results: [{ label: "Sign ups", control: 1, test: 2, controlRate: 1, testRate: 2, lift: 100, source: "amplitude" as const }] };
+  const sig = { ...base, status: "live" as const, results: [{ label: "Sign ups", control: 3, test: 4, controlRate: 1, testRate: 2, lift: 100, source: "statsig" as const }] };
+  const opts = { visitors7d: null, milestone: null, today: "2026-10-09" };
+  const ctx = (items: ExperimentListItem[]) => buildKpis(items, opts).find((k) => k.id === "signups")!.context;
+  assert.equal(ctx([amp]), "Control 1 · Test 2 · Amplitude, live");
+  assert.equal(ctx([amp, sig]), "Control 4 · Test 6 · Amplitude + Statsig");
+  assert.equal(ctx([sig]), "Control 3 · Test 4");
+});
+
+test("trafficLabel and sourceLabel name the source", () => {
+  assert.equal(trafficLabel("amplitude"), "Visitors");
+  assert.equal(trafficLabel("statsig"), "Exposures");
+  assert.match(sourceLabel("amplitude"), /Amplitude, live/);
+  assert.match(sourceLabel("statsig"), /updated daily/);
+});
+
+test("withAmplitude's tagline speaks of sign ups whatever Statsig's primary metric is", () => {
+  const statsig = { ...toListItem(scheduling, schedulingPulse, Date.UTC(2026, 9, 4, 12)), primaryMetric: "1D1" };
+  assert.equal(withAmplitude(statsig, arms([10000, 200], [10000, 260])).tagline.reason, "+30% sign ups");
+});
+
+test("pickDecision leaves the daily cost out when Amplitude has no Statsig traffic count", () => {
+  const statsig = { ...toListItem(scheduling, undefined, Date.UTC(2026, 9, 4, 12)), statsigTestN: null, day: 10 };
+  const losing = withAmplitude(statsig, arms([10000, 260], [10000, 200]));
+  assert.doesNotMatch(pickDecision([losing])!.body, /a day/);
+});
+
+test("toCsv says where each row's results come from", () => {
+  const csv = toCsv([{ ...base, resultsSource: "amplitude" }, base]);
+  assert.match(csv.split("\n")[0], /Test n,Results source,Progress/);
+  assert.match(csv.split("\n")[1], /"Amplitude \(consented visitors\)"/);
+  assert.match(csv.split("\n")[2], /"Statsig"/);
+});
+
+test("toListItem only carries Statsig's alpha over when the primary metric is sign ups", () => {
+  const signups = toListItem(scheduling, pulse({ adjustedAlpha: 0.01 }), Date.UTC(2026, 9, 4));
+  assert.equal(signups.alpha, 0.01);
+  const other = toListItem(scheduling, pulse({ metricName: "1D1", adjustedAlpha: 0.01 }), Date.UTC(2026, 9, 4));
+  assert.equal(other.alpha, null);
 });

@@ -6,6 +6,8 @@
 
 An "A/B testing" item sits under Overview in the AI Hub sidebar. Clicking it opens `/experiments`. That route swaps the sidebar for the Experiments sidebar and shows every Statsig experiment in one table — with a tagline verdict per row, expandable detail rows, program KPIs under the header and a decision banner at the bottom — following `XrNZp.png` at 1440 wide. All data is live from the Statsig Console API, read server-side only.
 
+> **Amended 2026-10-09 (AIA-4022):** Statsig's results lag a day (daily Databricks sync), so live experiments now take their sign-up results (rates, lift, significance, samples, sign-up KPI, decision banner, daily chart) from Amplitude funnels per arm. Statsig still provides everything else. See the README's Experiments section and `src/lib/experiment-amplitude.ts`. The "Rates and lift" rules below describe the Statsig fallback.
+
 ## What the live Statsig API gives us (probed 2026-10-05, key from Vercel prod env)
 
 | Need | Endpoint | Result |
