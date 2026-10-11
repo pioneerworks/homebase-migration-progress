@@ -52,6 +52,13 @@ export function experimentTitle(id: string): string {
     .join(" ");
 }
 
+/** The `count` most recently started experiments; ones without a start date sort last. */
+export function latestExperiments(cards: ExperimentCard[], count: number): ExperimentCard[] {
+  return [...cards]
+    .sort((a, b) => (b.started ?? "").localeCompare(a.started ?? ""))
+    .slice(0, count);
+}
+
 export function experimentDay(
   startTimeMs: number | null | undefined,
   now: number = Date.now(),

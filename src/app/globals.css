@@ -3415,6 +3415,12 @@ footer {
   align-items: center;
 }
 
+.exp-links {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
 .ext-link {
   display: inline-flex;
   align-items: center;

@@ -36,6 +36,7 @@ import {
 export {
   experimentDay,
   experimentTitle,
+  latestExperiments,
   pickArms,
   verdictFromPrimary,
 } from "./statsig-pure";
