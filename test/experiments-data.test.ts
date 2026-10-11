@@ -5,6 +5,7 @@ import {
   amplitudeBudget,
   getExperimentDetail,
   getExperimentsPage,
+  loadExperimentsNav,
   resetExperimentsCacheForTests,
 } from "../src/lib/experiments";
 import { resetArmResultsCacheForTests } from "../src/lib/experiment-amplitude";
@@ -917,4 +918,69 @@ test("the Amplitude daily series covers dates either arm has, with whole-run tot
     control: { visitors: 900, signups: 20 },
     test: { visitors: 920, signups: 15 },
   });
+});
+
+/** Runs `fn` with the Amplitude + Statsig keys in process.env (loadExperimentsNav reads it). */
+async function withProcessEnv(fn: () => Promise<void>) {
+  const saved = Object.fromEntries(Object.keys(AMP_ENV).map((k) => [k, process.env[k]]));
+  Object.assign(process.env, AMP_ENV);
+  try {
+    await fn();
+  } finally {
+    for (const [k, v] of Object.entries(saved)) {
+      if (v === undefined) delete process.env[k];
+      else process.env[k] = v;
+    }
+  }
+}
+
+test("the sidebar nav gives up on a slow Amplitude after its short budget", async () => {
+  installFetch();
+  standardRouter();
+  const amplitude = holdAmplitude();
+  const saved = { ...amplitudeBudget };
+  amplitudeBudget.ms = 60_000;
+  amplitudeBudget.navMs = 20;
+  try {
+    await withProcessEnv(async () => {
+      // the held call never answers, so only the nav budget can end the wait
+      const nav = await loadExperimentsNav();
+      assert.ok(amplitude.calls() > 0);
+      assert.equal(nav?.counts.live, 1);
+      // Statsig calls the scheduling test not significant: no decision needed
+      assert.equal(nav?.counts.decision, 0);
+    });
+  } finally {
+    Object.assign(amplitudeBudget, saved);
+    await amplitude.release();
+  }
+});
+
+test("the sidebar nav uses the last good Amplitude result when a refresh is slow", async () => {
+  installFetch();
+  standardRouter();
+  withAmplitudeRoute(AMP_ARMS);
+  await withProcessEnv(async () => {
+    await getExperimentsPage(AMP_ENV, Date.now());
+  });
+  const amplitude = holdAmplitude();
+  const saved = { ...amplitudeBudget };
+  amplitudeBudget.ms = 60_000;
+  amplitudeBudget.navMs = 20;
+  try {
+    await withProcessEnv(async () => {
+      // past the 15-minute TTL the refresh is held; Amplitude's "losing" call still shows
+      const realNow = Date.now;
+      Date.now = () => realNow() + 16 * 60_000;
+      try {
+        const nav = await loadExperimentsNav();
+        assert.equal(nav?.counts.decision, 1);
+      } finally {
+        Date.now = realNow;
+      }
+    });
+  } finally {
+    Object.assign(amplitudeBudget, saved);
+    await amplitude.release();
+  }
 });

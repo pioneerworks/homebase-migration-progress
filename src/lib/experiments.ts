@@ -31,6 +31,7 @@ import "server-only";
  * amplitudeBudget with no earlier result cached, or when Amplitude saw no
  * visitors in one of its arms.
  */
+import { after } from "next/server";
 import { cache } from "react";
 
 import { getArmResults, lastArmResults } from "./experiment-amplitude";
@@ -80,6 +81,19 @@ const DETAIL_DAYS = 28;
  * Mutable for tests.
  */
 export const amplitudeBudget = { ms: 10_000, navMs: 1_500 };
+
+/**
+ * Keep a call the response no longer waits for running until it settles, so
+ * it still fills the cache on serverless hosts that suspend after responding.
+ * Outside a request (tests, scripts) the call simply runs on.
+ */
+function keepAlive(promise: Promise<unknown>): void {
+  try {
+    after(() => promise.then(() => undefined, () => undefined));
+  } catch {
+    // not inside a Next request scope
+  }
+}
 
 type PageKey = { apiKey: string; now: number };
 type DetailKey = { id: string; apiKey: string; now: number };
@@ -177,13 +191,17 @@ export async function getExperimentDetail(
   if (!config) return null;
   const { items } = await pageValue(config.apiKey, now);
   const item = items.find((candidate) => candidate.id === id);
+  const live = item?.status === "live";
+  // the traffic split is needed either way; don't make it wait on Amplitude
+  const splitLoad = live ? splitCache.get({ id, apiKey: config.apiKey, now }, now) : null;
+  splitLoad?.catch(() => undefined);
   const amp = item ? await liveArmResults(item, env, now, amplitudeBudget.ms) : null;
   if (!amp) return detailCache.get({ id, apiKey: config.apiKey, now }, now);
 
   const daily = amplitudeDaily(amp);
   let split: Split | null;
   try {
-    split = await splitCache.get({ id, apiKey: config.apiKey, now }, now);
+    split = await splitLoad!;
   } catch (error) {
     // the Amplitude series still stands without Statsig's traffic split
     console.log(
@@ -231,7 +249,8 @@ async function liveArmResults(
   });
   try {
     const raced = await Promise.race([results, budget]);
-    const amp = raced === timedOut ? lastArmResults(window, env) : raced;
+    if (raced === timedOut) keepAlive(results);
+    const amp = raced === timedOut ? lastArmResults(window, env, now) : raced;
     // a slow refresh with a cached result is routine (the nav waits 1.5s); only
     // say so when Statsig's numbers are shown because of it
     if (raced === timedOut && !amp && budgetMs > 0) {
@@ -593,6 +612,7 @@ async function navPage(): Promise<ExperimentsPage | null | undefined> {
   try {
     const first = await Promise.race([full, late]);
     if (first !== "late") return first;
+    keepAlive(full);
   } finally {
     clearTimeout(timer);
   }

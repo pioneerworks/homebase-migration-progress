@@ -10,8 +10,8 @@ import {
   YAxis,
 } from "recharts";
 
-import { formatRate } from "@/lib/experiments-derive";
-import type { DailyPoint, ExperimentDetail } from "@/lib/experiments-types";
+import { formatRate, trafficLabel } from "@/lib/experiments-derive";
+import type { DailyPoint, ExperimentDetail, ResultsSource } from "@/lib/experiments-types";
 
 /**
  * Block 04 charts: two side-by-side recharts bar charts (exposures and owner
@@ -236,20 +236,20 @@ function RateTable({ daily, runTotals }: { daily: DailyPoint[]; runTotals?: Expe
 
 export default function DailyCharts({
   daily,
-  trafficLabel = "Exposures",
+  source = "statsig",
   totals,
 }: {
   daily: DailyPoint[];
-  trafficLabel?: string;
+  source?: ResultsSource;
   totals?: ExperimentDetail["totals"];
 }) {
   return (
     <div className="exp-d-daily">
       <div className="exp-d-charts">
-        <DailyBarChart title={`${trafficLabel} / day`} rows={toRows("exposures", daily)} daily={daily} showRate={false} />
+        <DailyBarChart title={`${trafficLabel(source)} / day`} rows={toRows("exposures", daily)} daily={daily} showRate={false} />
         <DailyBarChart
           // Amplitude counts a sign up on the day of the visit that led to it
-          title={totals ? "Owner sign ups by visit day" : "Owner sign ups / day"}
+          title={source === "amplitude" ? "Owner sign ups by visit day" : "Owner sign ups / day"}
           rows={toRows("signups", daily)}
           daily={daily}
           showRate={true}

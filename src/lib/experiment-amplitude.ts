@@ -24,7 +24,7 @@ import { ttlCache } from "@/lib/ttl-cache";
 const AMPLITUDE_FUNNELS_URL = "https://amplitude.com/api/2/funnels";
 const LABEL = "Amplitude Dashboard API (experiments)";
 /** Signups count when they land within 7 days of the qualifying page view. */
-export const CONVERSION_WINDOW_SECONDS = 7 * 86_400;
+const CONVERSION_WINDOW_SECONDS = 7 * 86_400;
 const CACHE_TTL_MS = 15 * 60 * 1000;
 const FAILURE_TTL_MS = 2 * 60 * 1000;
 /**
@@ -34,7 +34,7 @@ const FAILURE_TTL_MS = 2 * 60 * 1000;
  */
 const MAX_CONCURRENT = 2;
 
-export const experimentAmplitudeTimeout = { ms: 8_000 };
+const REQUEST_TIMEOUT_MS = 8_000;
 
 /** Experiment id plus its UTC date range (YYYY-MM-DD, end inclusive). */
 export type ArmWindow = { id: string; start: string; end: string };
@@ -124,14 +124,14 @@ async function fetchArm(config: AmplitudeConfig, window: ArmWindow, arm: 0 | 1):
     const response = await fetchWithTimeout(
       url,
       { headers: { Authorization: `Basic ${auth}` }, cache: "no-store" },
-      experimentAmplitudeTimeout.ms,
+      REQUEST_TIMEOUT_MS,
       LABEL,
     );
     if (!response.ok) {
       const detail = (await response.text().catch(() => "")).replace(/\s+/g, " ").slice(0, 200);
       throw new Error(`${LABEL} failed: ${response.status} ${detail}`.trim());
     }
-    return parseArmFunnel(await readJson<FunnelsResponse>(response, experimentAmplitudeTimeout.ms, LABEL));
+    return parseArmFunnel(await readJson<FunnelsResponse>(response, REQUEST_TIMEOUT_MS, LABEL));
   });
 }
 
@@ -140,22 +140,24 @@ type CacheKey = { config: AmplitudeConfig; window: ArmWindow };
 const keyOf = ({ config, window }: CacheKey) => `${config.apiKey}:${window.id}:${window.start}:${window.end}`;
 let cache = newCache();
 /** Per experiment, the key last read, so the previous day's entry is dropped when `end` moves on. */
-const latestKey = new Map<string, CacheKey>();
+const latestKey = new Map<string, CacheKey & { now: number }>();
 /**
- * Per experiment, the newest good result (any day), for a reader whose budget
- * runs out while a refresh is still in flight. See lastArmResults.
+ * Per experiment run (id + start date), the newest good result, for a reader
+ * whose budget runs out while a refresh is still in flight. See lastArmResults.
  */
-const lastGood = new Map<string, ArmResults>();
+const lastGood = new Map<string, { at: number; results: ArmResults }>();
+/** A last-good result older than this is not shown as live. */
+const LAST_GOOD_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 function newCache() {
-  return ttlCache<CacheKey, ArmResults>(
+  return ttlCache<CacheKey & { now: number }, ArmResults>(
     async (key) => {
       const [control, test] = await Promise.all([
         fetchArm(key.config, key.window, 0),
         fetchArm(key.config, key.window, 1),
       ]);
       const results = { control, test };
-      lastGood.set(experimentKey(key), results);
+      lastGood.set(runKey(key), { at: key.now, results });
       return results;
     },
     { ttlMs: CACHE_TTL_MS, failureTtlMs: FAILURE_TTL_MS, keyOf },
@@ -163,6 +165,7 @@ function newCache() {
 }
 
 const experimentKey = ({ config, window }: CacheKey) => `${config.apiKey}:${window.id}`;
+const runKey = (key: CacheKey) => `${experimentKey(key)}:${key.window.start}`;
 
 export function resetArmResultsCacheForTests(): void {
   cache = newCache();
@@ -173,15 +176,19 @@ export function resetArmResultsCacheForTests(): void {
 }
 
 /**
- * The newest good result for this experiment, without fetching: what to show
- * when a refresh is slower than the caller can wait. Null when none yet.
+ * The newest good result for this experiment run, without fetching: what to
+ * show when a refresh is slower than the caller can wait. Null when there is
+ * none from the last day.
  */
 export function lastArmResults(
   window: ArmWindow,
   env: Record<string, string | undefined> = process.env,
+  now: number = Date.now(),
 ): ArmResults | null {
   const config = amplitudeConfig(env);
-  return config ? lastGood.get(experimentKey({ config, window })) ?? null : null;
+  if (!config) return null;
+  const entry = lastGood.get(runKey({ config, window }));
+  return entry && now - entry.at <= LAST_GOOD_MAX_AGE_MS ? entry.results : null;
 }
 
 /** Both arms' funnels, or null when the Amplitude keys aren't configured. Failures throw. */
@@ -192,7 +199,7 @@ export async function getArmResults(
 ): Promise<ArmResults | null> {
   const config = amplitudeConfig(env);
   if (!config) return null;
-  const key = { config, window };
+  const key = { config, window, now };
   const id = experimentKey(key);
   const previous = latestKey.get(id);
   if (previous && keyOf(previous) !== keyOf(key)) cache.clear(previous);

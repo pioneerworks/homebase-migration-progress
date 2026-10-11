@@ -258,7 +258,7 @@ export function toListItem(
 // ---------------------------------------------------------------------------
 
 /** Significance threshold for Amplitude results when Statsig gives no adjusted alpha. */
-export const AMPLITUDE_ALPHA = 0.05;
+const AMPLITUDE_ALPHA = 0.05;
 /** The Amplitude overlay always measures owner sign ups, whatever Statsig's primary metric is. */
 const AMPLITUDE_METRIC = "Owner Signups";
 
@@ -291,18 +291,8 @@ export function withAmplitude(item: ExperimentListItem, amp: ArmResults): Experi
   const others = item.results.filter((r) => r.label !== "Sign ups");
   const base = { ...item, resultsSource: "amplitude" as const, controlN: control.visitors, testN: test.visitors };
 
-  if (control.visitors <= 0 || test.visitors <= 0) {
-    return {
-      ...base,
-      controlRate: null,
-      testRate: null,
-      lift: null,
-      pValue: null,
-      verdict: "no-data",
-      results: others,
-      tagline: taglineOf(item.status, "no-data", AMPLITUDE_METRIC, null),
-    };
-  }
+  // the loader only overlays results with visitors in both arms; keep Statsig's otherwise
+  if (control.visitors <= 0 || test.visitors <= 0) return item;
 
   const controlRate = (control.signups / control.visitors) * 100;
   const testRate = (test.signups / test.visitors) * 100;

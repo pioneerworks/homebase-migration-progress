@@ -435,14 +435,10 @@ test("withAmplitude calls a significant drop a loss and a noisy gap no signal", 
   assert.equal(withAmplitude(statsig, arms([1000, 20], [1000, 24])).verdict, "no-signal");
 });
 
-test("withAmplitude without any visitors keeps the item but shows no data", () => {
+test("withAmplitude leaves the Statsig item alone when an arm has no visitors", () => {
   const statsig = toListItem(scheduling, schedulingPulse, Date.UTC(2026, 9, 4, 12));
-  const item = withAmplitude(statsig, arms([0, 0], [0, 0]));
-  assert.equal(item.resultsSource, "amplitude");
-  assert.equal(item.controlRate, null);
-  assert.equal(item.lift, null);
-  assert.equal(item.verdict, "no-data");
-  assert.deepEqual(item.results.map((r) => r.label), ["1D1s"]);
+  assert.equal(withAmplitude(statsig, arms([0, 0], [0, 0])), statsig);
+  assert.equal(withAmplitude(statsig, arms([100, 2], [0, 0])), statsig);
 });
 
 test("toListItem marks Statsig as the results source", () => {

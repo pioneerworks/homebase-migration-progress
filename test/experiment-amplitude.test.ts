@@ -5,6 +5,7 @@ import { amplitudeConfig } from "../src/lib/amplitude";
 import {
   armFunnelQuery,
   getArmResults,
+  lastArmResults,
   parseArmFunnel,
   resetArmResultsCacheForTests,
 } from "../src/lib/experiment-amplitude";
@@ -160,9 +161,11 @@ test("getArmResults refetches after 15 minutes, caches a failure for 2, and keys
   await getArmResults(window, ENV, NOW + 15 * 60_000);
   assert.equal(calls, 4);
 
-  // a new day is a new window, fetched fresh
+  // a new day is a new window, fetched fresh, and the previous day's entry is dropped
   await getArmResults({ ...window, end: "2026-10-10" }, ENV, NOW + 16 * 60_000);
   assert.equal(calls, 6);
+  await getArmResults(window, ENV, NOW + 17 * 60_000);
+  assert.equal(calls, 8);
 
   // a failure on a cold key is not retried for 2 minutes
   fail = true;
@@ -190,4 +193,16 @@ test("getArmResults never has more than 2 Amplitude calls in flight", async () =
   assert.equal(results.length, 4);
   assert.ok(results.every((r) => r?.control.visitors === 100));
   assert.equal(peak, 2);
+});
+
+test("lastArmResults keeps a run's newest result for a day, and not across a restart", async () => {
+  globalThis.fetch = async () => Response.json(funnelBody(100, 2));
+  const window = { id: "exp_x", start: "2026-10-01", end: "2026-10-09" };
+  assert.equal(lastArmResults(window, ENV, NOW), null);
+  await getArmResults(window, ENV, NOW);
+  assert.equal(lastArmResults({ ...window, end: "2026-10-10" }, ENV, NOW + 60_000)?.control.visitors, 100);
+  // older than a day is not shown as live
+  assert.equal(lastArmResults(window, ENV, NOW + 25 * 60 * 60 * 1000), null);
+  // a restarted experiment (new start date) never shows the old run
+  assert.equal(lastArmResults({ ...window, start: "2026-10-08" }, ENV, NOW + 60_000), null);
 });

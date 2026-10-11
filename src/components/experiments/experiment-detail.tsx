@@ -470,7 +470,7 @@ function DailyBlock({
         </span>
       </header>
       {hasDaily ? (
-        <DailyCharts daily={daily!} trafficLabel={traffic} totals={totals} />
+        <DailyCharts daily={daily!} source={source} totals={totals} />
       ) : (
         <p className="exp-d-muted">Daily breakdown isn&rsquo;t available yet.</p>
       )}

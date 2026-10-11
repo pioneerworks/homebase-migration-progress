@@ -162,8 +162,9 @@ on Statsig. Amplitude only sees visitors who accept cookies (about half of
 Statsig's), equally in both arms, so its rates are comparable and its visitor
 counts are not Statsig's exposures. Amplitude results are cached for 15
 minutes. An experiment shows Statsig's numbers when Amplitude fails, when it
-takes longer than 10 seconds with nothing cached yet (1.5 seconds for the
-sidebar counts on other tabs), or when Amplitude sees no visitors in one of
+takes longer than 10 seconds with no result from the last day cached (1.5
+seconds for the Experiments sidebar counts, which every page load starts), or
+when Amplitude sees no visitors in one of
 its arms (a page that doesn't stamp the arm property). The daily sign-up chart
 counts each sign up on the day of the visit that led to it.
 
