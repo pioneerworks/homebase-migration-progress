@@ -191,7 +191,10 @@ test("latestExperiments keeps the newest starts, unstarted last", () => {
     Date.UTC(2026, 9, 10),
   );
   assert.deepEqual(latestExperiments(cards, 3).map((c) => c.id), ["newest", "newer", "mid"]);
-  assert.deepEqual(latestExperiments(cards, 10).map((c) => c.id).at(-1), "unstarted");
+  assert.deepEqual(
+    latestExperiments(cards, 10).map((c) => c.id),
+    ["newest", "newer", "mid", "old", "unstarted"],
+  );
   assert.equal(cards[0].id, "old", "input order is not mutated");
 });
 
