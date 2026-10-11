@@ -1005,3 +1005,26 @@ test("without Amplitude, the detail panel fetches Statsig's exposures once", asy
   await getExperimentDetail(SCHEDULING_ID, ENV, NOW);
   assert.equal(exposureCalls() - beforeDetail, 1);
 });
+
+test("a slow Statsig load shrinks the Amplitude wait so the page meets its deadline", { timeout: 2_000 }, async () => {
+  installFetch();
+  standardRouter();
+  const amplitude = holdAmplitude();
+  const saved = { ...amplitudeBudget };
+  const realNow = Date.now;
+  amplitudeBudget.ms = 60_000;
+  // the Statsig half "takes" 25s: every clock read after the first is 25s later
+  const t0 = realNow();
+  let reads = 0;
+  Date.now = () => (reads++ === 0 ? t0 : realNow() + 25_000);
+  try {
+    // without the deadline this would wait the full 60s budget on the held call
+    const page = await getExperimentsPage(AMP_ENV, NOW);
+    assert.ok(amplitude.calls() > 0);
+    assert.equal(page?.experiments[0].resultsSource, "statsig");
+  } finally {
+    Date.now = realNow;
+    Object.assign(amplitudeBudget, saved);
+    await amplitude.release();
+  }
+});

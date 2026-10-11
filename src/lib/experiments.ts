@@ -165,10 +165,12 @@ export async function getExperimentsPage(
   // a slow Statsig load leaves less time for Amplitude, so the page stays
   // inside its 30s maxDuration and renders Statsig's numbers instead of a 504
   const remaining = Math.max(0, Math.min(budgetMs, startedAt + PAGE_DEADLINE_MS - Date.now()));
+  // budget 0 by choice (the nav's cache-only rebuild) is quiet; cut by the deadline is not
+  const report = budgetMs > 0;
 
   const items = await Promise.all(
     value.items.map(async (item) => {
-      const amp = await liveArmResults(item, env, now, remaining);
+      const amp = await liveArmResults(item, env, now, remaining, report);
       return amp ? withAmplitude(item, amp) : item;
     }),
   );
@@ -242,6 +244,7 @@ async function liveArmResults(
   env: Record<string, string | undefined>,
   now: number,
   budgetMs: number,
+  report = true,
 ): Promise<ArmResults | null> {
   if (item.status !== "live" || !item.startDate) return null;
   const window = { id: item.id, start: item.startDate, end: new Date(now).toISOString().slice(0, 10) };
@@ -263,7 +266,7 @@ async function liveArmResults(
     const amp = raced === timedOut ? lastArmResults(window, env, now) : raced;
     // a slow refresh with a cached result is routine (the nav waits 1.5s); only
     // say so when Statsig's numbers are shown because of it
-    if (raced === timedOut && !amp && budgetMs > 0) {
+    if (raced === timedOut && !amp && report) {
       console.log(`[experiments] Amplitude results for ${item.id} took over ${budgetMs}ms, showing Statsig's`);
     }
     return amp && amp.control.visitors > 0 && amp.test.visitors > 0 ? amp : null;
