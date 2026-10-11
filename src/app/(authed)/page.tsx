@@ -16,10 +16,10 @@ import {
   type AttentionItem,
 } from "@/lib/overview";
 import { loadExperiments, loadMergeDays, loadSignupSeries, MERGE_REPO } from "@/lib/overview-data";
-import type { ExperimentCard } from "@/lib/statsig";
+import { latestExperiments, type ExperimentCard } from "@/lib/statsig";
 import { getDoneOverviews, getTrackerOverviews } from "@/lib/tracker-overviews";
 import { DONE_PROJECTS, TRACKER_PROJECTS } from "@/lib/tracker-projects";
-import { ArrowUpRight, CalendarX, CircleCheck, FlaskConical, TriangleAlert } from "lucide-react";
+import { ArrowRight, ArrowUpRight, CalendarX, CircleCheck, FlaskConical, TriangleAlert } from "lucide-react";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { cache, Suspense } from "react";
@@ -32,6 +32,8 @@ export const maxDuration = 30;
 // first full day is Jun 27
 const CHART_START = "2026-06-27";
 const STATSIG_CONSOLE = "https://console.statsig.com";
+/** The overview tile shows only the newest few; the Experiments tab has the rest. */
+const TILE_EXPERIMENTS = 3;
 
 function formatDay(date: string): string {
   return new Date(`${date}T00:00:00Z`).toLocaleDateString("en-US", {
@@ -524,12 +526,21 @@ async function ExperimentList() {
       </p>
     );
   }
+  const shown = latestExperiments(runningExperiments, TILE_EXPERIMENTS);
   return (
-    <div className="exps">
-      {runningExperiments.map((experiment) => (
-        <Experiment key={experiment.id} experiment={experiment} />
-      ))}
-    </div>
+    <>
+      <div className="exps">
+        {shown.map((experiment) => (
+          <Experiment key={experiment.id} experiment={experiment} />
+        ))}
+      </div>
+      {runningExperiments.length > shown.length ? (
+        <p className="exp-more">
+          Showing the {shown.length} newest of {runningExperiments.length} live experiments.{" "}
+          <Link href="/experiments">See all experiments</Link>
+        </p>
+      ) : null}
+    </>
   );
 }
 
@@ -634,9 +645,14 @@ export default async function OverviewPage() {
           <h2 className="h2" id="exp-title">
             Live experiments · Statsig
           </h2>
-          <a className="ext-link" href={STATSIG_CONSOLE} target="_blank" rel="noreferrer">
-            Statsig <ArrowUpRight size={14} aria-hidden="true" />
-          </a>
+          <div className="exp-links">
+            <Link className="ext-link" href="/experiments">
+              See all experiments <ArrowRight size={14} aria-hidden="true" />
+            </Link>
+            <a className="ext-link" href={STATSIG_CONSOLE} target="_blank" rel="noreferrer">
+              Statsig <ArrowUpRight size={14} aria-hidden="true" />
+            </a>
+          </div>
         </div>
         <SectionBoundary label="experiments">
           <Suspense

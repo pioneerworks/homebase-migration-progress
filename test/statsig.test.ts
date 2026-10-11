@@ -4,6 +4,7 @@ import { test } from "node:test";
 import {
   experimentDay,
   experimentTitle,
+  latestExperiments,
   statsigConfig,
   toExperimentCards,
   verdictFromPrimary,
@@ -174,6 +175,34 @@ test("toExperimentCards flattens experiment + pulse into a card", () => {
   assert.equal(card.testUnits, 1720);
   assert.ok(Math.abs((card.controlRate ?? 0) - 0.02495) < 0.001);
   assert.ok(Math.abs((card.percentChange ?? 0) + 53.4) < 0.1);
+});
+
+test("latestExperiments keeps the newest starts, unstarted last", () => {
+  const at = (id: string, startTime: number | undefined) => ({ ...experiment, id, startTime });
+  const cards = toExperimentCards(
+    [
+      at("old", Date.UTC(2026, 8, 1)),
+      at("unstarted", undefined),
+      at("newest", Date.UTC(2026, 9, 8)),
+      at("mid", Date.UTC(2026, 8, 20)),
+      at("newer", Date.UTC(2026, 9, 1)),
+    ],
+    new Map(),
+    Date.UTC(2026, 9, 10),
+  );
+  assert.deepEqual(latestExperiments(cards, 3).map((c) => c.id), ["newest", "newer", "mid"]);
+  assert.deepEqual(
+    latestExperiments(cards, 10).map((c) => c.id),
+    ["newest", "newer", "mid", "old", "unstarted"],
+  );
+  assert.equal(cards[0].id, "old", "input order is not mutated");
+
+  const sameDay = toExperimentCards(
+    [at("first", Date.UTC(2026, 9, 8, 9)), at("second", Date.UTC(2026, 9, 8, 15))],
+    new Map(),
+    Date.UTC(2026, 9, 10),
+  );
+  assert.deepEqual(latestExperiments(sameDay, 3).map((c) => c.id), ["first", "second"]);
 });
 
 test("toExperimentCards keeps experiments whose pulse load failed", () => {
