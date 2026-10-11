@@ -3417,6 +3417,17 @@ footer {
   gap: 8px 16px;
 }
 
+.exp-more {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.exp-more a {
+  color: var(--brand-purple);
+  font-weight: 700;
+}
+
 .exp-links {
   display: flex;
   flex-wrap: wrap;

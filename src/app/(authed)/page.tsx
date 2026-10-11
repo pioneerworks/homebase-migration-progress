@@ -526,12 +526,21 @@ async function ExperimentList() {
       </p>
     );
   }
+  const shown = latestExperiments(runningExperiments, TILE_EXPERIMENTS);
   return (
-    <div className="exps">
-      {latestExperiments(runningExperiments, TILE_EXPERIMENTS).map((experiment) => (
-        <Experiment key={experiment.id} experiment={experiment} />
-      ))}
-    </div>
+    <>
+      <div className="exps">
+        {shown.map((experiment) => (
+          <Experiment key={experiment.id} experiment={experiment} />
+        ))}
+      </div>
+      {runningExperiments.length > shown.length ? (
+        <p className="exp-more">
+          Showing the {shown.length} newest of {runningExperiments.length} live experiments.{" "}
+          <Link href="/experiments">See all experiments</Link>
+        </p>
+      ) : null}
+    </>
   );
 }
 
