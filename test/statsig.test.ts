@@ -196,6 +196,13 @@ test("latestExperiments keeps the newest starts, unstarted last", () => {
     ["newest", "newer", "mid", "old", "unstarted"],
   );
   assert.equal(cards[0].id, "old", "input order is not mutated");
+
+  const sameDay = toExperimentCards(
+    [at("first", Date.UTC(2026, 9, 8, 9)), at("second", Date.UTC(2026, 9, 8, 15))],
+    new Map(),
+    Date.UTC(2026, 9, 10),
+  );
+  assert.deepEqual(latestExperiments(sameDay, 3).map((c) => c.id), ["first", "second"]);
 });
 
 test("toExperimentCards keeps experiments whose pulse load failed", () => {
